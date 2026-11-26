@@ -815,7 +815,7 @@ class Site:
         except ValueError:
             pass
         jaren = cfg.get("jaren_nieuw", 2)
-        inhoud = f"""<div style="padding-top:2.8rem"><h2>## films &amp; series <span>· bijgewerkt {e(bijgewerkt)}</span></h2>
+        inhoud = f"""<div style="padding-top:2.8rem"><h2>## Films and series <span>· bijgewerkt {e(bijgewerkt)}</span></h2>
 <p class="intro-tekst">Goed beoordeelde films en series, gesorteerd op {"IMDb" if bron == "imdb" else "TMDB"}-score. Kies genres (meerdere mag) en zet eventueel je eigen streamingdiensten aan. Je keuzes worden onthouden.</p>
 <div class="filters">
 {chips("soort", "soort", ["film", "serie"])}
