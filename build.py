@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""~/nieuws — haalt RSS/Atom-feeds op en bouwt een rustige nieuwssite van alleen tekst.
+"""DIRGE — persoonlijke startpagina van alleen tekst: home, films en nieuws.
+
+Haalt nieuws uit RSS/Atom-feeds en maakt er 'de tien van vandaag' van; de filmpagina
+komt uit films.json (zie films.py).
 
 Gebruik:  python build.py                         (schrijft naar ./site)
           python build.py --archief archief-data  (bewaart berichten voor het archief)
@@ -400,8 +403,27 @@ KLAPBORD = [
 ]
 
 
-def pixel_logo(raster: list[str]) -> str:
-    """Pixelart als SVG; kleuren komen uit het thema (CSS-variabelen)."""
+# Woordmerk DIRGE in 8-bit stijl; elke rij krijgt een eigen tint (verloop licht → donker).
+DIRGE = [
+    ".########....###...########......#########...#########",
+    "##########...###..##########....##########..##########",
+    "###....####..###..###....####..####.........###.......",
+    "###.....###..###..###.....###..###..........###.......",
+    "###.....###..###..###....####..###..........###.......",
+    "###.....###..###..##########...###...#####..########..",
+    "###.....###..###..#########....###...#####..########..",
+    "###.....###..###..###..####....###.....###..###.......",
+    "###.....###..###..###...####...###.....###..###.......",
+    "###....####..###..###....###...####....###..###.......",
+    "##########...###..###....####...##########..##########",
+    ".########....###..###.....###....#########...#########",
+    "###...........#...........###..........##...##........",
+]
+
+
+def pixel_logo(raster: list[str], rij_klasse: bool = False, label: str = "") -> str:
+    """Pixelart als SVG; kleuren komen uit het thema (CSS-variabelen).
+    rij_klasse=True: elke rij krijgt klasse d0, d1, … voor een kleurverloop."""
     rects = []
     for y, rij in enumerate(raster):
         x = 0
@@ -411,11 +433,13 @@ def pixel_logo(raster: list[str]) -> str:
             while x + lengte < len(rij) and rij[x + lengte] == k:
                 lengte += 1
             if k != ".":
-                rects.append(f'<rect class="px-{k}" x="{x}" y="{y}" width="{lengte}" height="1"/>')
+                klasse = f"d{y}" if rij_klasse else f"px-{k}"
+                rects.append(f'<rect class="{klasse}" x="{x}" y="{y}" width="{lengte}" height="1"/>')
             x += lengte
     b, h = len(raster[0]), len(raster)
-    return (f'<svg class="pixellogo" viewBox="0 0 {b} {h}" width="{b * 3}" height="{h * 3}" '
-            f'shape-rendering="crispEdges" aria-hidden="true">{"".join(rects)}</svg>')
+    toegankelijk = f'role="img" aria-label="{label}"' if label else 'aria-hidden="true"'
+    return (f'<svg class="{"woordmerk" if rij_klasse else "pixellogo"}" viewBox="0 0 {b} {h}" width="{b * 3}" height="{h * 3}" '
+            f'shape-rendering="crispEdges" {toegankelijk}>{"".join(rects)}</svg>')
 
 
 THEMAS = ["tokyo-night", "catppuccin", "gruvbox", "rose-pine", "latte"]
@@ -442,6 +466,13 @@ button{font:inherit;background:none;border:0;color:inherit;cursor:pointer;paddin
 .wrap{max-width:1200px;margin:0 auto;padding:2rem 1.7rem 4.5rem}
 header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:.3rem 1.2rem;padding-bottom:1.15rem;border-bottom:1px solid var(--ln)}
 .logo{font-size:1.57rem;font-weight:700;letter-spacing:-.5px;color:var(--br);display:flex;align-items:center;gap:.85rem}.logo span{color:var(--ac)}
+.home{min-height:64vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2.8rem;padding:3rem 0}
+.woordmerk{width:min(90vw,42rem);height:auto}
+.d0,.d1{fill:var(--br)}.d2,.d3{fill:color-mix(in srgb,var(--br) 72%,var(--ac))}.d4{fill:color-mix(in srgb,var(--br) 45%,var(--ac))}
+.d5{fill:color-mix(in srgb,var(--br) 20%,var(--ac))}.d6,.d7{fill:var(--ac)}.d8{fill:color-mix(in srgb,var(--ac) 82%,var(--bg))}
+.d9{fill:color-mix(in srgb,var(--ac) 68%,var(--bg))}.d10,.d11{fill:color-mix(in srgb,var(--ac) 54%,var(--bg))}.d12{fill:color-mix(in srgb,var(--ac) 38%,var(--bg))}
+.home-links{display:flex;flex-wrap:wrap;justify-content:center;gap:1rem 3.4rem;letter-spacing:.35em;text-transform:uppercase}
+.home-links a.kop{color:var(--ac);font-weight:500;padding:.5rem .3rem .5rem .65rem}.home-links a.kop:hover{color:var(--br);text-decoration:none}
 .pixellogo{height:2.1em;width:auto;flex:none}.px-a{fill:var(--ac)}.px-b{fill:var(--br)}.px-c{fill:var(--ac2)}
 .sub{color:var(--dim)}.sub b{color:var(--fg);font-weight:500}
 .label{font-size:.86rem;color:var(--ac2);margin-bottom:.85rem}
@@ -485,11 +516,6 @@ summary::before{content:"+ "}details[open] summary::before{content:"− "}
 .gelezen .kop,.gelezen.kop{color:var(--dim)!important;font-weight:400!important}
 .nieuw>.kop::before,.nieuw .kop:first-child::before{content:"▪ ";color:var(--ac2)}
 a.kop.cursor{outline:1px solid var(--ac);outline-offset:3px}
-.archieflijst{list-style:none;margin:0;padding:0;border-top:1px solid var(--ln)}
-.archieflijst li{display:flex;flex-wrap:wrap;justify-content:space-between;gap:.3rem 1.2rem;padding:.6rem 0;border-bottom:1px solid var(--ln)}
-.archieflijst a{color:var(--br)}
-.zoekveld{width:100%;font:inherit;font-size:1.07rem;color:var(--br);background:transparent;border:1px solid var(--ln);padding:.7rem .9rem;margin-bottom:1.7rem}
-.zoekveld::placeholder{color:var(--dim)}
 footer{margin-top:4rem;padding-top:1.4rem;border-top:1px solid var(--ln);font-size:.86rem;color:var(--dim);display:flex;flex-direction:column;gap:.85rem}
 footer .stuk{color:var(--rood)}
 #hulp{position:fixed;right:1.2rem;bottom:1.2rem;background:var(--bg);border:1px solid var(--ln);padding:1rem 1.2rem;font-size:.86rem;z-index:10;max-width:calc(100vw - 2.4rem)}
@@ -548,7 +574,6 @@ d.addEventListener("keydown",function(ev){
  var t=ev.target;if(t&&(t.tagName==="INPUT"||t.tagName==="TEXTAREA"||t.isContentEditable)){if(ev.key==="Escape")t.blur();return}
  var k=ev.key;
  if(k==="j")ga(1);else if(k==="k")ga(-1);
- else if(k==="/"){var z=d.getElementById("zoek");if(z)z.focus();else location.href="zoeken.html"}
  else if(k==="?")hulp.hidden=!hulp.hidden;
  else if(k==="Escape")hulp.hidden=true;
  else if(k==="t")volgendThema();
@@ -560,25 +585,6 @@ d.addEventListener("keydown",function(ev){
  ev.preventDefault()});
 })();
 """.replace("%THEMAS%", json.dumps(THEMAS))
-
-ZOEK_JS = """
-(function(){var d=document,inp=d.getElementById("zoek"),uit=d.getElementById("resultaten"),data=null,timer;
-function norm(s){return s.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"")}
-function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
-function zoek(){if(!data)return;var q=inp.value.trim(),tm=norm(q).split(/\\s+/).filter(Boolean);
- try{history.replaceState(null,"",q?"?q="+encodeURIComponent(q):location.pathname)}catch(e){}
- if(!tm.length){uit.innerHTML='<p class="meta">Zoek in '+data.items.length+' koppen van de afgelopen '+data.dagen+' dagen. Meerdere woorden: alle moeten voorkomen.</p>';return}
- var res=[];for(var i=0;i<data.items.length&&res.length<150;i++){var x=data.items[i];if(tm.every(function(w){return x.n.indexOf(w)>=0}))res.push(x)}
- if(!res.length){uit.innerHTML='<p class="meta">Niets gevonden.</p>';return}
- var h="",dag=null;res.forEach(function(x){if(x[6]!==dag){if(dag!==null)h+="</div>";h+='<div class="dag">▍ '+esc(x[6])+'</div><div class="lijst">';dag=x[6]}
-  h+='<div class="item rij"><a class="kop" href="'+esc(x[5]||x[4])+'">'+esc(x[3])+'</a><div class="meta">'+esc(x[1])+' · '+esc(x[2])+' · '+esc(x[7])+'</div></div>'});
- uit.innerHTML=h+"</div>"+(res.length>=150?'<p class="meta">Eerste 150 resultaten.</p>':"")}
-inp.addEventListener("input",function(){clearTimeout(timer);timer=setTimeout(zoek,120)});
-var q=new URLSearchParams(location.search).get("q");if(q)inp.value=q;inp.focus();
-fetch("zoeken.json").then(function(r){return r.json()}).then(function(j){data=j;j.items.forEach(function(x){x.n=norm(x[3]+" "+x[2])});zoek()})
- .catch(function(){uit.innerHTML='<p class="meta">De zoekindex kon niet worden geladen.</p>'});
-})();
-"""
 
 FILM_JS = """
 (function(){var d=document;
@@ -603,12 +609,11 @@ pas();
 """
 
 HULP = """<div id="hulp" hidden><div class="label">▍ toetsen</div><table>
-<tr><td>j / k</td><td>volgende / vorige kop</td></tr>
-<tr><td>Enter</td><td>open de gekozen kop</td></tr>
+<tr><td>j / k</td><td>volgende / vorige link</td></tr>
+<tr><td>Enter</td><td>open de gekozen link</td></tr>
 <tr><td>o</td><td>open het artikel bij de bron</td></tr>
 <tr><td>h</td><td>terug</td></tr>
-<tr><td>1 – %N%</td><td>rubrieken in de balk</td></tr>
-<tr><td>/</td><td>zoeken</td></tr>
+<tr><td>1 – %N%</td><td>pagina's in de balk</td></tr>
 <tr><td>t</td><td>ander thema</td></tr>
 <tr><td>+ / −</td><td>tekst groter / kleiner</td></tr>
 <tr><td>?</td><td>dit venster · Esc sluit</td></tr>
@@ -621,24 +626,23 @@ class Site:
         self.rubrieken = rubrieken
         self.stats = stats
         self.editie = editie
-        self.tabs = ([("voorpagina", "index.html"), ("vandaag", "vandaag.html")]
-                     + [(r["titel"], f'{r["id"]}.html') for r in rubrieken]
+        self.tabs = ([("home", "index.html")]
                      + ([("films", "films.html")] if self.films else [])
-                     + [("archief", "archief.html")])
+                     + [("nieuws", "nieuws.html")])
 
-    def pagina(self, titel: str, actief: str, inhoud: str, pagina_id: str = "", extra_js: str = "", logo: str = "nieuws",
-               icoon: str = "", voet: str = "") -> str:
+    def editie_tekst(self) -> str:
+        moment, naam, volgende = self.editie
+        return f"bijgewerkt {klok(NOW)}" if naam == "live" else f"<b>{naam}</b> · {datum_lang(moment)} · {volgende}"
+
+    def pagina(self, titel: str, actief: str, inhoud: str, pagina_id: str = "", extra_js: str = "", logo: str = "",
+               icoon: str = "", voet: str = "", sub: str = "") -> str:
+        """Algemeen sjabloon. Zonder logo (zoals op home) is er geen kopregel."""
         nav = "".join(
             f'<a href="{href}"{" class=on aria-current=page" if naam == actief else ""}>{i + 1} {e(naam)}</a>'
             for i, (naam, href) in enumerate(self.tabs)
         )
-        st = self.stats
-        stuk_html = f' · <span class="stuk">niet bereikbaar: {e(", ".join(st["stuk"]))}</span>' if st["stuk"] else ""
-        moment, naam, volgende = self.editie
-        if naam == "live":
-            editie = f"bijgewerkt {klok(NOW)}"
-        else:
-            editie = f"<b>{naam}</b> · {datum_lang(moment)} · {volgende}"
+        kop = (f'<header>\n<div class="logo">{icoon}<div><span>~/</span>{e(logo)}</div></div>\n'
+               f'<div class="sub">{sub}</div>\n</header>') if logo else ""
         body_id = f' data-id="{pagina_id}"' if pagina_id else ""
         return f"""<!doctype html>
 <html lang="nl">
@@ -646,7 +650,7 @@ class Site:
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{e(titel)}</title>
-<meta name="description" content="Nieuws uit alle bronnen, alleen tekst.">
+<meta name="description" content="DIRGE — persoonlijke startpagina. Alleen tekst.">
 <script>{HEAD_JS}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -654,9 +658,8 @@ class Site:
 </head>
 <body{body_id}>
 <div class="bar">
-<nav aria-label="Rubrieken">{nav}</nav>
+<nav aria-label="Pagina's">{nav}</nav>
 <div class="knoppen">
-<a href="zoeken.html" title="Zoeken (/)">/ zoeken</a>
 <button type="button" id="thema" title="Ander thema (t)">◐ tokyo-night</button>
 <button type="button" id="kleiner" aria-label="Tekst kleiner" title="Tekst kleiner (−)">A−</button>
 <button type="button" id="groter" aria-label="Tekst groter" title="Tekst groter (+)">A+</button>
@@ -664,14 +667,11 @@ class Site:
 </div>
 </div>
 <div class="wrap">
-<header>
-<div class="logo">{icoon}<div><span>~/</span>{e(logo)}</div></div>
-<div class="sub">{editie}</div>
-</header>
+{kop}
 {inhoud}
 <footer>
-{voet or f'<div>{st["artikelen"]} artikelen uit {st["bronnen"]} bronnen: {e(" · ".join(st["namen"]))}{stuk_html}</div>'}
-<div>alleen tekst · geen tracking · druk op ? voor sneltoetsen</div>
+{voet}
+<div>dirge · alleen tekst · geen tracking · druk op ? voor sneltoetsen</div>
 </footer>
 </div>
 {HULP.replace("%N%", str(len(self.tabs)))}
@@ -683,82 +683,42 @@ class Site:
 
     # ── pagina's ──
 
-    def voorpagina(self, per: dict[str, list[Cluster]], rub_van: dict[int, dict]) -> str:
-        ref = self.editie[0]
-        alle = [c for r in self.rubrieken for c in per[r["id"]]]
-        if not alle:
-            return self.pagina("~/nieuws", "voorpagina", '<p class="sub" style="padding:40px 0">Nog geen berichten opgehaald.</p>')
+    def home(self) -> str:
+        links = [("films", "films.html")] if self.films else []
+        links.append(("nieuws", "nieuws.html"))
+        inhoud = (f'<main class="home">{pixel_logo(DIRGE, rij_klasse=True, label="DIRGE")}'
+                  f'<nav class="home-links" aria-label="Onderdelen">'
+                  + "".join(f'<a class="kop" href="{h}">{n}</a>' for n, h in links)
+                  + "</nav></main>")
+        return self.pagina("dirge", "home", inhoud)
 
-        # 1. Belangrijkst: waar de meeste bronnen over schrijven (met leeftijd meegewogen).
-        recent = [c for c in alle if ref - c.tijd < timedelta(hours=18)] or alle
-        top = sorted(recent, key=lambda c: c.gewicht(ref), reverse=True)[:5]
-        rijen = []
-        for i, c in enumerate(top, 1):
-            sam = f'<p class="sam">{e(c.hoofd.samenvatting)}</p>' if c.hoofd.samenvatting else ""
-            rijen.append(f'<li class="rij"><span class="nr">{i}</span><div>{kop_link(c)}{sam}'
-                         f'<div class="meta">{e(rub_van[id(c)]["titel"])} · {meta(c)}</div>{dekking_html(c)}</div></li>')
-        getoond = {id(c) for c in top}
+    def nieuws_voet(self) -> str:
+        st = self.stats
+        stuk = f' · <span class="stuk">niet bereikbaar: {e(", ".join(st["stuk"]))}</span>' if st["stuk"] else ""
+        return f'<div>nieuws uit {st["bronnen"]} bronnen: {e(" · ".join(st["namen"]))}{stuk}</div>'
 
-        # 2. Laatste: de rest op tijd.
-        laatste = [c for c in sorted(alle, key=lambda c: c.tijd, reverse=True) if id(c) not in getoond][:12]
-        getoond |= {id(c) for c in laatste}
-        lrijen = "".join(
-            f'<li class="rij"><span class="t">{klok(c.tijd)}</span><div>{kop_link(c)}'
-            f'<div class="meta">{e(rub_van[id(c)]["titel"])} · {meta(c, False)}</div></div></li>'
-            for c in laatste
-        )
-
-        # 3. Per rubriek, op belangrijkheid.
-        blokken = []
-        for r in self.rubrieken:
-            cl = [c for c in per[r["id"]] if id(c) not in getoond]
-            cl.sort(key=lambda c: c.gewicht(ref), reverse=True)
-            if not cl:
-                continue
-            blokken.append(
-                f'<section id="{r["id"]}"><h2>## {e(r["titel"])} <span>· {len(per[r["id"]])}</span></h2>'
-                f'<div class="lijst">{"".join(cluster_html(c) for c in cl[:6])}</div>'
-                f'<a class="meer" href="{r["id"]}.html">alles in {e(r["titel"])} →</a></section>'
-            )
-
-        inhoud = f"""<section class="blok"><div class="label">▍ belangrijkst · waar de meeste bronnen over schrijven</div><ol class="groot">{"".join(rijen)}</ol></section>
-<section class="blok"><div class="label">▍ laatste</div><ol class="rest">{lrijen}</ol></section>
-<div class="rubrieken">{"".join(blokken)}</div>"""
-        return self.pagina("~/nieuws", "voorpagina", inhoud)
-
-    def vandaag(self, per: dict[str, list[Cluster]], rub_van: dict[int, dict]) -> str:
+    def top10(self, per: dict[str, list[Cluster]]) -> list[Cluster]:
+        """De tien onderwerpen waar vandaag de meeste bronnen over schrijven."""
         ref = self.editie[0]
         alle = [c for r in self.rubrieken for c in per[r["id"]]]
         dag = lokale_dag(ref)
         kandidaten = [c for c in alle if lokale_dag(c.tijd) == dag]
         if len(kandidaten) < 10:
             kandidaten = [c for c in alle if ref - c.tijd <= timedelta(hours=24)]
-        top = sorted(kandidaten, key=lambda c: (len(c.bronnen), len(c.items), c.tijd), reverse=True)[:10]
+        return sorted(kandidaten, key=lambda c: (len(c.bronnen), len(c.items), c.tijd), reverse=True)[:10]
+
+    def nieuws(self, top: list[Cluster], rub_van: dict[int, dict]) -> str:
+        dag = lokale_dag(self.editie[0])
         rijen = []
         for i, c in enumerate(top, 1):
             sam = f'<p class="sam">{e(c.hoofd.samenvatting)}</p>' if c.hoofd.samenvatting else ""
             rijen.append(f'<li class="rij"><span class="nr">{i}</span><div>{kop_link(c)}{sam}'
                          f'<div class="meta">{e(rub_van[id(c)]["titel"])} · {meta(c)}</div>{dekking_html(c)}</div></li>')
         datum = f"{DAGEN_LANG[dag.weekday()]} {dag.day} {MAANDEN[dag.month - 1]}"
-        inhoud = f"""<div class="smal"><h2>## vandaag in 5 minuten <span>· {datum}</span></h2>
+        inhoud = f"""<div class="smal"><h2>## de tien van vandaag <span>· {datum}</span></h2>
 <p class="intro-tekst">De tien onderwerpen waar vandaag de meeste bronnen over schrijven. Lees ze door, en je weet wat er speelt.</p>
 <ol class="groot">{"".join(rijen) or '<li>Nog niets te melden.</li>'}</ol></div>"""
-        return self.pagina("vandaag in 5 minuten — ~/nieuws", "vandaag", inhoud)
-
-    def rubriekpagina(self, r: dict, clusters: list[Cluster]) -> str:
-        delen, huidige = [], None
-        for c in sorted(clusters, key=lambda c: c.tijd, reverse=True):
-            kop = dag_naam(lokale_dag(c.tijd))
-            if kop != huidige:
-                if huidige is not None:
-                    delen.append("</div>")
-                delen.append(f'<div class="dag">▍ {kop}</div><div class="lijst">')
-                huidige = kop
-            delen.append(cluster_html(c, uitgebreid=True))
-        if huidige is not None:
-            delen.append("</div>")
-        inhoud = f'<div class="smal"><h2>## {e(r["titel"])} <span>· {len(clusters)} onderwerpen</span></h2>{"".join(delen)}</div>'
-        return self.pagina(f'{r["titel"]} — ~/nieuws', r["titel"], inhoud)
+        return self.pagina("nieuws — dirge", "nieuws", inhoud, logo="nieuws", sub=self.editie_tekst(), voet=self.nieuws_voet())
 
     def artikelpagina(self, c: Cluster, r: dict) -> str:
         h = c.hoofd
@@ -786,14 +746,15 @@ class Site:
             )
             anderen = f'<div class="label" style="margin-top:3.4rem">▍ zo brengen de anderen het · {len(c.items) - 1}</div><div class="anderen">{blokken}</div>'
         inhoud = f"""<article class="artikel">
-<a class="terug" href="{r["id"]}.html">← {e(r["titel"])}</a>
+<a class="terug" href="nieuws.html">← nieuws</a>
 <div class="label">▍ {e(r["titel"])} · {e(h.bron)} · {datum_lang(h.tijd)}</div>
 <h1>{e(h.titel)}</h1>
 <div class="tekst">{intro}</div>
 <a class="lees groot" href="{e(h.link)}" rel="noopener">{knop}</a>
 {anderen}
 </article>"""
-        return self.pagina(f"{h.titel} — ~/nieuws", r["titel"], inhoud, pagina_id=c.id)
+        return self.pagina(f"{h.titel} — dirge", "nieuws", inhoud, pagina_id=c.id, logo="nieuws",
+                           sub=self.editie_tekst(), voet=self.nieuws_voet())
 
     def filmpagina(self, data: dict, cfg: dict) -> str:
         bron = cfg.get("score", "imdb")
@@ -872,51 +833,8 @@ class Site:
                 f'<div>introteksten, genres en streaminginfo: TMDB · streaminggegevens: JustWatch'
                 f'{" · scores: IMDb (imdb.com)" if bron == "imdb" else ""}</div>'
                 f'<div>Deze site gebruikt de TMDB API maar is niet door TMDB goedgekeurd of gecertificeerd.</div>')
-        return self.pagina("Wat zullen we kijken? — ~/nieuws", "films", inhoud, extra_js=FILM_JS,
+        return self.pagina("Wat zullen we kijken? — dirge", "films", inhoud, extra_js=FILM_JS,
                            logo="Wat zullen we kijken?", icoon=pixel_logo(KLAPBORD), voet=voet)
-
-    def zoekpagina(self) -> str:
-        inhoud = """<div class="smal"><h2>## zoeken</h2>
-<label for="zoek" class="meta">Zoek in koppen en bronnen</label>
-<input id="zoek" class="zoekveld" type="search" autocomplete="off" placeholder="bijv. kabinet woningen">
-<div id="resultaten"><p class="meta">Zoekindex laden…</p></div></div>"""
-        return self.pagina("zoeken — ~/nieuws", "", inhoud, extra_js=ZOEK_JS)
-
-    def archiefoverzicht(self, dagen: list[tuple[date, Counter]]) -> str:
-        rijen = "".join(
-            f'<li><a href="archief-{d.isoformat()}.html">{dag_naam(d, lang=True)}</a>'
-            f'<span class="meta">{sum(n.values())} {"bericht" if sum(n.values()) == 1 else "berichten"} · '
-            + " · ".join(f"{e(r['titel'])} {n.get(r['id'], 0)}" for r in self.rubrieken)
-            + "</span></li>"
-            for d, n in dagen
-        )
-        inhoud = f"""<div class="smal"><h2>## archief <span>· {len(dagen)} dagen</span></h2>
-<p class="intro-tekst">Alle berichten per dag. Vandaag staat op de voorpagina en in de rubrieken; hier vind je de dagen daarvoor.</p>
-<ul class="archieflijst">{rijen or '<li class="meta">Het archief begint vanaf morgen te vullen.</li>'}</ul></div>"""
-        return self.pagina("archief — ~/nieuws", "archief", inhoud)
-
-    def archiefdag(self, d: date, per: dict[str, list[Cluster]], vorige: date | None, volgende: date | None) -> str:
-        eind = datetime.combine(d + timedelta(days=1), time(0), TZ).astimezone(timezone.utc)
-        blokken = []
-        for r in self.rubrieken:
-            cl = sorted(per.get(r["id"], []), key=lambda c: (len(c.bronnen), c.tijd), reverse=True)
-            if not cl:
-                continue
-            blokken.append(
-                f'<section><h2>## {e(r["titel"])} <span>· {len(cl)}</span></h2><div class="lijst">'
-                + "".join(cluster_html(c, href=c.hoofd.link, met_tijd=False) for c in cl)
-                + "</div></section>"
-            )
-        nav = []
-        if vorige:
-            nav.append(f'<a class="meer" href="archief-{vorige.isoformat()}.html">← {dag_naam(vorige)}</a>')
-        nav.append('<a class="meer" href="archief.html">alle dagen</a>')
-        if volgende:
-            nav.append(f'<a class="meer" href="archief-{volgende.isoformat()}.html">{dag_naam(volgende)} →</a>')
-        inhoud = f"""<div style="padding-top:2.8rem"><h2>## archief <span>· {dag_naam(d, lang=True)}</span></h2>
-<div style="display:flex;gap:1.7rem;flex-wrap:wrap">{"".join(nav)}</div></div>
-<div class="rubrieken">{"".join(blokken)}</div>"""
-        return self.pagina(f"archief {d.isoformat()} — ~/nieuws", "archief", inhoud)
 
 
 # ── hoofdprogramma ──────────────────────────────────────────────────────────
@@ -1050,47 +968,17 @@ def main() -> int:
     out.mkdir(parents=True, exist_ok=True)
     for oud in out.glob("*.html"):
         oud.unlink()
-    (out / "index.html").write_text(site.voorpagina(clusters, rub_van), "utf-8")
-    (out / "vandaag.html").write_text(site.vandaag(clusters, rub_van), "utf-8")
-    (out / "zoeken.html").write_text(site.zoekpagina(), "utf-8")
+    (out / "index.html").write_text(site.home(), "utf-8")
     if films_data is not None:
         (out / "films.html").write_text(site.filmpagina(films_data, config.get("films", {})), "utf-8")
-    eigen_pagina: dict[str, str] = {}
-    for r in rubrieken:
-        (out / f'{r["id"]}.html').write_text(site.rubriekpagina(r, clusters[r["id"]]), "utf-8")
-        for c in clusters[r["id"]]:
-            (out / c.pagina).write_text(site.artikelpagina(c, r), "utf-8")
-            for it in c.items:
-                eigen_pagina[it.link] = c.pagina
-
-    # ── archiefpagina's (dagen vóór vandaag) ──
-    per_dag: dict[date, list[Item]] = {}
-    for it in alle_items:
-        dag = lokale_dag(it.tijd)
-        if dag < lokale_dag(grens):
-            per_dag.setdefault(dag, []).append(it)
-    dagen = sorted(per_dag, reverse=True)
-    for i, dag in enumerate(dagen):
-        per = {r["id"]: groepeer([it for it in per_dag[dag] if it.rubriek == r["id"]]) for r in rubrieken}
-        vorige = dagen[i + 1] if i + 1 < len(dagen) else None
-        volgende = dagen[i - 1] if i > 0 else None
-        (out / f"archief-{dag.isoformat()}.html").write_text(site.archiefdag(dag, per, vorige, volgende), "utf-8")
-    (out / "archief.html").write_text(
-        site.archiefoverzicht([(d, Counter(it.rubriek for it in per_dag[d])) for d in dagen]), "utf-8")
-
-    # ── zoekindex ──
-    zoek_dagen = int(site_cfg.get("zoek_dagen", 14))
-    index = []
-    for it in sorted(alle_items, key=lambda i: i.tijd, reverse=True):
-        if it.tijd > grens + timedelta(minutes=1) or (grens - it.tijd).days >= zoek_dagen:
-            continue
-        index.append([int(it.tijd.timestamp()), rub_per_id[it.rubriek]["titel"], it.bron, it.titel, it.link,
-                      eigen_pagina.get(it.link, ""), dag_naam(lokale_dag(it.tijd), lang=True), klok(it.tijd)])
-    (out / "zoeken.json").write_text(json.dumps({"dagen": zoek_dagen, "items": index}, ensure_ascii=False, separators=(",", ":")), "utf-8")
+    top = site.top10(clusters)
+    (out / "nieuws.html").write_text(site.nieuws(top, rub_van), "utf-8")
+    for c in top:
+        (out / c.pagina).write_text(site.artikelpagina(c, rub_van[id(c)]), "utf-8")
 
     (out / ".nojekyll").write_text("")
-    print(f"✓ {len(live)} artikelen ({editie[1]}) uit {len(namen)} bronnen → {out}/ · "
-          f"{weggefilterd} niet-nieuws weggefilterd · archief {len(dagen)} dagen · zoekindex {len(index)}")
+    print(f"✓ home, {'films, ' if films_data is not None else ''}nieuws ({editie[1]}, {len(live)} berichten uit "
+          f"{len(namen)} bronnen, {weggefilterd} niet-nieuws weggefilterd) → {out}/")
     return 0
 
 
