@@ -30,6 +30,21 @@ from pathlib import Path
 TMDB = os.environ.get("TMDB_BASE", "https://api.themoviedb.org/3")
 IMDB_RATINGS = os.environ.get("IMDB_RATINGS_URL", "https://datasets.imdbws.com/title.ratings.tsv.gz")
 UA = "nieuws-tekst/1.0 (persoonlijke, niet-commerciële site)"
+DATA_VERSIE = 2  # ophogen = bij de volgende run opnieuw ophalen
+
+
+def latijns(s: str) -> bool:
+    """True als een titel in Latijns schrift is (geen Japans, Chinees, Koreaans, Cyrillisch, ...)."""
+    return all(ord(c) < 0x250 or not c.isalpha() for c in s)
+
+
+def dienst_naam(naam: str) -> str | None:
+    """Maakt streamingdiensten eenduidig; 'X Amazon Channel' e.d. laten we weg (dubbel)."""
+    if " Channel" in naam:
+        return None
+    vast = {"Sky Showtime": "SkyShowtime", "Amazon Prime Video": "Prime Video", "Disney Plus": "Disney+",
+            "Netflix basic with Ads": "Netflix", "Netflix Standard with Ads": "Netflix"}
+    return vast.get(naam, naam)
 
 # Nederlandse genrenamen → TMDB-genre-id's voor films en voor series (None = bestaat niet voor series).
 GENRES = {
@@ -107,7 +122,7 @@ def main() -> int:
     if uit.exists() and not args.forceer:
         try:
             vorig = datetime.fromisoformat(json.loads(uit.read_text("utf-8"))["bijgewerkt"])
-            if nu - vorig < timedelta(hours=20):
+            if nu - vorig < timedelta(hours=20) and json.loads(uit.read_text("utf-8")).get("versie") == DATA_VERSIE:
                 print("Films zijn nog vers; niets te doen.")
                 return 0
         except (KeyError, ValueError, json.JSONDecodeError):
@@ -160,14 +175,19 @@ def main() -> int:
         if not imdb_id:
             return None
         intro = (d.get("overview") or "").strip()
-        if not intro:  # geen Nederlandse tekst: val terug op Engels
-            intro = (tmdb.get(f"/{soort}/{tid}", language="en-US").get("overview") or "").strip()
+        titel = d.get("title") or d.get("name") or ""
+        if not intro or not latijns(titel):  # geen Nederlandse tekst of titel in ander schrift: Engels erbij
+            en = tmdb.get(f"/{soort}/{tid}", language="en-US")
+            intro = intro or (en.get("overview") or "").strip()
+            if not latijns(titel):
+                titel = en.get("title") or en.get("name") or titel
         aanbod = d.get("watch/providers", {}).get("results", {}).get(land, {})
-        diensten = [p["provider_name"] for p in aanbod.get("flatrate", []) + aanbod.get("free", []) + aanbod.get("ads", [])]
+        diensten = [n for p in aanbod.get("flatrate", []) + aanbod.get("free", []) + aanbod.get("ads", [])
+                    if (n := dienst_naam(p["provider_name"]))]
         datum = d.get("release_date") or d.get("first_air_date") or ""
         return {
             "imdb_id": imdb_id, "tmdb": tid, "soort": "film" if soort == "movie" else "serie",
-            "titel": d.get("title") or d.get("name") or "",
+            "titel": titel,
             "origineel": d.get("original_title") or d.get("original_name") or "",
             "datum": datum, "jaar": int(datum[:4]) if datum[:4].isdigit() else None,
             "genres": [NAAM.get(g["id"], g.get("name", "").lower()) for g in d.get("genres", [])],
@@ -186,7 +206,7 @@ def main() -> int:
     titels = [t for t in titels if t["imdb"] is not None]
 
     uit.parent.mkdir(parents=True, exist_ok=True)
-    uit.write_text(json.dumps({"bijgewerkt": nu.isoformat(timespec="seconds"), "land": land, "grens_nieuw": grens_nieuw,
+    uit.write_text(json.dumps({"versie": DATA_VERSIE, "bijgewerkt": nu.isoformat(timespec="seconds"), "land": land, "grens_nieuw": grens_nieuw,
                                "titels": sorted(titels, key=lambda t: -t["imdb"])}, ensure_ascii=False, indent=0), "utf-8")
     print(f"✓ {len(titels)} films en series met IMDb-score → {uit}")
     return 0
