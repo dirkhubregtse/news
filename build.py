@@ -591,7 +591,7 @@ class Site:
                      + ([("films", "films.html")] if self.films else [])
                      + [("archief", "archief.html")])
 
-    def pagina(self, titel: str, actief: str, inhoud: str, pagina_id: str = "", extra_js: str = "") -> str:
+    def pagina(self, titel: str, actief: str, inhoud: str, pagina_id: str = "", extra_js: str = "", logo: str = "nieuws") -> str:
         nav = "".join(
             f'<a href="{href}"{" class=on aria-current=page" if naam == actief else ""}>{i + 1} {e(naam)}</a>'
             for i, (naam, href) in enumerate(self.tabs)
@@ -629,7 +629,7 @@ class Site:
 </div>
 <div class="wrap">
 <header>
-<div class="logo"><span>~/</span>nieuws</div>
+<div class="logo"><span>~/</span>{e(logo)}</div>
 <div class="sub">{editie}</div>
 </header>
 {inhoud}
@@ -833,7 +833,7 @@ class Site:
 <p class="leeg" hidden>Niets gevonden met deze filters.</p></section>
 <p class="meta" style="margin-top:2rem">Introteksten, genres en streaminginfo: TMDB, streaminggegevens van JustWatch. Deze site gebruikt de TMDB API maar is niet door TMDB goedgekeurd of gecertificeerd.{" Scores: IMDb (imdb.com)." if bron == "imdb" else ""}</p>
 </div>"""
-        return self.pagina("films & series — ~/nieuws", "films", inhoud, extra_js=FILM_JS)
+        return self.pagina("Wat zullen we kijken? — ~/nieuws", "films", inhoud, extra_js=FILM_JS, logo="Wat zullen we kijken?")
 
     def zoekpagina(self) -> str:
         inhoud = """<div class="smal"><h2>## zoeken</h2>
