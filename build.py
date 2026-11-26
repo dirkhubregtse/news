@@ -48,6 +48,7 @@ class Item:
     link: str
     tijd: datetime
     samenvatting: str = ""
+    categorieen: tuple[str, ...] = ()
 
     @property
     def tokens(self) -> set[str]:
@@ -166,7 +167,8 @@ def parse_feed(data: bytes, bron: str) -> list[Item]:
         samenvatting = schoon(kind_tekst(el, "description", "summary"), 320)
         if samenvatting.lower().startswith(titel.lower()[:40]):
             samenvatting = ""
-        items.append(Item(bron, titel, link, tijd, samenvatting))
+        cats = tuple(schoon(c.text or "") for c in el if lokaal(c.tag) == "category" and (c.text or "").strip())
+        items.append(Item(bron, titel, link, tijd, samenvatting, cats))
     return items
 
 
@@ -444,6 +446,8 @@ def main() -> int:
     config = tomllib.loads(Path(args.config).read_text("utf-8"))
     rubrieken = config["rubriek"]
     taken = [(r["id"], b["naam"], b["url"]) for r in rubrieken for b in r["bronnen"]]
+    # per bron (rubriek, naam): optionele lijst met toegestane categorieën
+    alleen = {(r["id"], b["naam"]): {c.lower() for c in b.get("alleen_categorie", [])} for r in rubrieken for b in r["bronnen"]}
 
     def laad(taak):
         rid, naam, url = taak
@@ -465,8 +469,15 @@ def main() -> int:
     url_weg = [u.lower() for u in flt.get("negeer_url", [])]
     titel_weg = [re.compile(t, re.I) for t in flt.get("negeer_titel", [])]
 
-    def is_nieuws(it: Item) -> bool:
+    cat_weg = {c.lower() for c in flt.get("negeer_categorie", [])}
+
+    def is_nieuws(it: Item, toegestaan: set[str]) -> bool:
         link = it.link.lower()
+        cats = {c.lower() for c in it.categorieen}
+        if toegestaan and not (cats & toegestaan):
+            return False
+        if cats & cat_weg:
+            return False
         return not any(u in link for u in url_weg) and not any(t.search(it.titel) for t in titel_weg)
 
     weggefilterd = 0
@@ -477,7 +488,7 @@ def main() -> int:
             stuk.append(naam)
             continue
         werkend.append(naam)
-        goed = [it for it in items if is_nieuws(it)]
+        goed = [it for it in items if is_nieuws(it, alleen[(rid, naam)])]
         weggefilterd += len(items) - len(goed)
         per_rubriek[rid].extend(it for it in goed if NOW - it.tijd <= MAX_AGE)
 
