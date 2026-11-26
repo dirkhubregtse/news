@@ -832,8 +832,7 @@ class Site:
 <p class="leeg" hidden>Niets gevonden met deze filters.</p></section>
 </div>"""
         self.film_bron = bron  # voor de bronvermelding op de pagina 'over'
-        return self.pagina("Wat zullen we kijken? — dirge", "films", inhoud, extra_js=FILM_JS,
-                           logo="Wat zullen we kijken?", icoon=pixel_logo(KLAPBORD))
+        return self.pagina("Wat zullen we kijken? — dirge", "films", inhoud, extra_js=FILM_JS)
 
     def over(self) -> str:
         """Bronvermeldingen (TMDB vraagt die in een 'over'/'credits'-gedeelte)."""
