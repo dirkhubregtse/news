@@ -8,13 +8,13 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write   # om het archief op de branch 'archief' te bewaren
   pages: write
   id-token: write
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false   # niet afbreken: dan raakt er geen archief kwijt
 
 jobs:
   bouwen:
@@ -27,8 +27,32 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
+
+      - name: Archief ophalen
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          url="https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git ls-remote --exit-code --heads "$url" archief >/dev/null 2>&1; then
+            git clone -q --depth 1 --branch archief "$url" archief-data
+          else
+            git init -q -b archief archief-data
+            git -C archief-data remote add origin "$url"
+          fi
+
       - name: Feeds ophalen en site bouwen
-        run: python build.py --out site
+        run: python build.py --out site --archief archief-data
+
+      - name: Archief bewaren
+        working-directory: archief-data
+        run: |
+          git add -A
+          if git diff --cached --quiet; then echo "Archief ongewijzigd"; exit 0; fi
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -q -m "Archief bijwerken"
+          git push -q origin HEAD:archief
+
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:
