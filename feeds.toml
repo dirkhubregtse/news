@@ -1,4 +1,4 @@
-# Bronnenlijst voor ~/nieuws
+# Bronnenlijst voor de nieuwspagina van DIRGE
 #
 # Elke [[rubriek]] wordt een kop op de site.
 # Voeg een bron toe door een regel { naam = "...", url = "..." } toe te voegen.
@@ -15,7 +15,6 @@
 # Rustiger dan een live stroom. Laat de lijst leeg ([]) voor live, elke 15 minuten.
 edities = ["07:00", "12:30", "18:00"]
 archief_dagen = 365   # hoe lang berichten in het archief blijven
-zoek_dagen = 14       # hoeveel dagen terug je kunt zoeken
 
 [films]
 # Filmsuggesties (pagina 'films'). Vereist een gratis TMDB-sleutel als GitHub-secret TMDB_API_KEY.
