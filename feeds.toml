@@ -10,6 +10,13 @@
 #   "volledig"     de hele tekst op je eigen pagina (alleen bij een open licentie,
 #                  zet dan ook licentie = "..." erbij voor de bronvermelding)
 
+[site]
+# Edities: de site ververst alleen op deze tijden (Nederlandse tijd).
+# Rustiger dan een live stroom. Laat de lijst leeg ([]) voor live, elke 15 minuten.
+edities = ["07:00", "12:30", "18:00"]
+archief_dagen = 365   # hoe lang berichten in het archief blijven
+zoek_dagen = 14       # hoeveel dagen terug je kunt zoeken
+
 # Filter voor dingen die geen nieuws zijn (puzzels, recepten, horoscopen…).
 # negeer_url:   berichten waarvan de link dit stukje bevat, worden overgeslagen.
 # negeer_titel: berichten waarvan de kop hierop past (hoofdletters maken niet uit).
