@@ -384,6 +384,40 @@ def cluster_html(c: Cluster, uitgebreid: bool = False, href: str | None = None, 
     return '<div class="item rij">' + "".join(uit) + "</div>"
 
 
+KLAPBORD = [
+    "..aabbaabbaabbaa",
+    ".aabbaabbaabbaa.",
+    "................",
+    "aabbaabbaabbaabb",
+    "abbaabbaabbaabba",
+    "aaaaaaaaaaaaaaaa",
+    "a..............a",
+    "a.cccc.ccc.cc..a",
+    "a..............a",
+    "a.cc.cccc.ccc..a",
+    "a..............a",
+    "aaaaaaaaaaaaaaaa",
+]
+
+
+def pixel_logo(raster: list[str]) -> str:
+    """Pixelart als SVG; kleuren komen uit het thema (CSS-variabelen)."""
+    rects = []
+    for y, rij in enumerate(raster):
+        x = 0
+        while x < len(rij):
+            k = rij[x]
+            lengte = 1
+            while x + lengte < len(rij) and rij[x + lengte] == k:
+                lengte += 1
+            if k != ".":
+                rects.append(f'<rect class="px-{k}" x="{x}" y="{y}" width="{lengte}" height="1"/>')
+            x += lengte
+    b, h = len(raster[0]), len(raster)
+    return (f'<svg class="pixellogo" viewBox="0 0 {b} {h}" width="{b * 3}" height="{h * 3}" '
+            f'shape-rendering="crispEdges" aria-hidden="true">{"".join(rects)}</svg>')
+
+
 THEMAS = ["tokyo-night", "catppuccin", "gruvbox", "rose-pine", "latte"]
 
 CSS = """
@@ -407,7 +441,8 @@ button{font:inherit;background:none;border:0;color:inherit;cursor:pointer;paddin
 #thema{color:var(--fg)}
 .wrap{max-width:1200px;margin:0 auto;padding:2rem 1.7rem 4.5rem}
 header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:.3rem 1.2rem;padding-bottom:1.15rem;border-bottom:1px solid var(--ln)}
-.logo{font-size:1.57rem;font-weight:700;letter-spacing:-.5px;color:var(--br)}.logo span{color:var(--ac)}
+.logo{font-size:1.57rem;font-weight:700;letter-spacing:-.5px;color:var(--br);display:flex;align-items:center;gap:.85rem}.logo span{color:var(--ac)}
+.pixellogo{height:2.1em;width:auto;flex:none}.px-a{fill:var(--ac)}.px-b{fill:var(--br)}.px-c{fill:var(--ac2)}
 .sub{color:var(--dim)}.sub b{color:var(--fg);font-weight:500}
 .label{font-size:.86rem;color:var(--ac2);margin-bottom:.85rem}
 section.blok{padding:2.3rem 0 2.6rem;border-bottom:1px solid var(--ln)}
@@ -591,7 +626,8 @@ class Site:
                      + ([("films", "films.html")] if self.films else [])
                      + [("archief", "archief.html")])
 
-    def pagina(self, titel: str, actief: str, inhoud: str, pagina_id: str = "", extra_js: str = "", logo: str = "nieuws") -> str:
+    def pagina(self, titel: str, actief: str, inhoud: str, pagina_id: str = "", extra_js: str = "", logo: str = "nieuws",
+               icoon: str = "", voet: str = "") -> str:
         nav = "".join(
             f'<a href="{href}"{" class=on aria-current=page" if naam == actief else ""}>{i + 1} {e(naam)}</a>'
             for i, (naam, href) in enumerate(self.tabs)
@@ -629,12 +665,12 @@ class Site:
 </div>
 <div class="wrap">
 <header>
-<div class="logo"><span>~/</span>{e(logo)}</div>
+<div class="logo">{icoon}<div><span>~/</span>{e(logo)}</div></div>
 <div class="sub">{editie}</div>
 </header>
 {inhoud}
 <footer>
-<div>{st["artikelen"]} artikelen uit {st["bronnen"]} bronnen: {e(" · ".join(st["namen"]))}{stuk_html}</div>
+{voet or f'<div>{st["artikelen"]} artikelen uit {st["bronnen"]} bronnen: {e(" · ".join(st["namen"]))}{stuk_html}</div>'}
 <div>alleen tekst · geen tracking · druk op ? voor sneltoetsen</div>
 </footer>
 </div>
@@ -828,12 +864,16 @@ class Site:
 <section class="blok" style="padding-top:0"><div class="label">▍ nieuw · laatste {jaren} jaar · <span class="telling" data-voor="nieuw"></span></div>
 <div class="filmlijst" id="nieuw">{"".join(titel_html(t) for t in nieuw) or '<p class="leeg">Nog geen titels.</p>'}</div>
 <p class="leeg" hidden>Niets gevonden met deze filters.</p></section>
-<section class="blok"><div class="label">▍ all-time · <span class="telling" data-voor="alltime"></span></div>
+<section class="blok" style="border-bottom:0"><div class="label">▍ all-time · <span class="telling" data-voor="alltime"></span></div>
 <div class="filmlijst" id="alltime">{"".join(titel_html(t) for t in alltime) or '<p class="leeg">Nog geen titels.</p>'}</div>
 <p class="leeg" hidden>Niets gevonden met deze filters.</p></section>
-<p class="meta" style="margin-top:2rem">Introteksten, genres en streaminginfo: TMDB, streaminggegevens van JustWatch. Deze site gebruikt de TMDB API maar is niet door TMDB goedgekeurd of gecertificeerd.{" Scores: IMDb (imdb.com)." if bron == "imdb" else ""}</p>
 </div>"""
-        return self.pagina("Wat zullen we kijken? — ~/nieuws", "films", inhoud, extra_js=FILM_JS, logo="Wat zullen we kijken?")
+        voet = (f'<div>{len(nieuw) + len(alltime)} films en series · bijgewerkt {e(bijgewerkt)}</div>'
+                f'<div>introteksten, genres en streaminginfo: TMDB · streaminggegevens: JustWatch'
+                f'{" · scores: IMDb (imdb.com)" if bron == "imdb" else ""}</div>'
+                f'<div>Deze site gebruikt de TMDB API maar is niet door TMDB goedgekeurd of gecertificeerd.</div>')
+        return self.pagina("Wat zullen we kijken? — ~/nieuws", "films", inhoud, extra_js=FILM_JS,
+                           logo="Wat zullen we kijken?", icoon=pixel_logo(KLAPBORD), voet=voet)
 
     def zoekpagina(self) -> str:
         inhoud = """<div class="smal"><h2>## zoeken</h2>
