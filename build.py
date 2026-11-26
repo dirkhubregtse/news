@@ -466,6 +466,8 @@ button{font:inherit;background:none;border:0;color:inherit;cursor:pointer;paddin
 .wrap{max-width:1200px;margin:0 auto;padding:2rem 1.7rem 4.5rem}
 header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:.3rem 1.2rem;padding-bottom:1.15rem;border-bottom:1px solid var(--ln)}
 .logo{font-size:1.57rem;font-weight:700;letter-spacing:-.5px;color:var(--br);display:flex;align-items:center;gap:.85rem}.logo span{color:var(--ac)}
+.credits{margin:0;padding-left:1.2rem;display:flex;flex-direction:column;gap:.5rem;max-width:68ch}
+.credits a,footer a{color:var(--ac)}
 .home{min-height:64vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2.8rem;padding:3rem 0}
 .woordmerk{width:min(90vw,42rem);height:auto}
 .d0,.d1{fill:var(--br)}.d2,.d3{fill:color-mix(in srgb,var(--br) 72%,var(--ac))}.d4{fill:color-mix(in srgb,var(--br) 45%,var(--ac))}
@@ -671,7 +673,7 @@ class Site:
 {inhoud}
 <footer>
 {voet}
-<div>dirge · alleen tekst · geen tracking · druk op ? voor sneltoetsen</div>
+<div>dirge · alleen tekst · geen tracking · druk op ? voor sneltoetsen · <a href="over.html">over</a></div>
 </footer>
 </div>
 {HULP.replace("%N%", str(len(self.tabs)))}
@@ -829,12 +831,28 @@ class Site:
 <div class="filmlijst" id="alltime">{"".join(titel_html(t) for t in alltime) or '<p class="leeg">Nog geen titels.</p>'}</div>
 <p class="leeg" hidden>Niets gevonden met deze filters.</p></section>
 </div>"""
-        voet = (f'<div>{len(nieuw) + len(alltime)} films en series · bijgewerkt {e(bijgewerkt)}</div>'
-                f'<div>introteksten, genres en streaminginfo: TMDB · streaminggegevens: JustWatch'
-                f'{" · scores: IMDb (imdb.com)" if bron == "imdb" else ""}</div>'
-                f'<div>Deze site gebruikt de TMDB API maar is niet door TMDB goedgekeurd of gecertificeerd.</div>')
+        self.film_bron = bron  # voor de bronvermelding op de pagina 'over'
         return self.pagina("Wat zullen we kijken? — dirge", "films", inhoud, extra_js=FILM_JS,
-                           logo="Wat zullen we kijken?", icoon=pixel_logo(KLAPBORD), voet=voet)
+                           logo="Wat zullen we kijken?", icoon=pixel_logo(KLAPBORD))
+
+    def over(self) -> str:
+        """Bronvermeldingen (TMDB vraagt die in een 'over'/'credits'-gedeelte)."""
+        st = self.stats
+        films = ""
+        if self.films:
+            imdb = ("<li>Scores: IMDb (<a href=\"https://www.imdb.com\" rel=\"noopener\">imdb.com</a>).</li>"
+                    if getattr(self, "film_bron", "imdb") == "imdb" else "")
+            films = f"""<h2 style="margin-top:2.3rem">## films</h2><ul class="credits">
+<li>Introteksten, genres en streaminginfo: <a href="https://www.themoviedb.org" rel="noopener">TMDB</a>.
+Deze site gebruikt de TMDB API maar is niet door TMDB goedgekeurd of gecertificeerd.</li>
+<li>Waar te kijken: gegevens van <a href="https://www.justwatch.com" rel="noopener">JustWatch</a>, via TMDB.</li>{imdb}</ul>"""
+        inhoud = f"""<div class="smal"><h2>## over dirge</h2>
+<p class="intro-tekst">Persoonlijke startpagina. Alleen tekst, geen advertenties, geen tracking. Instellingen zoals thema en tekstgrootte blijven in je eigen browser.</p>
+{films}
+<h2 style="margin-top:2.3rem">## nieuws</h2><ul class="credits">
+<li>Koppen en links van: {e(" · ".join(st["namen"])) or "—"}.</li>
+<li>Volledige tekst alleen van bronnen met een open licentie (vermeld bij het artikel).</li></ul></div>"""
+        return self.pagina("over — dirge", "", inhoud, logo="over")
 
 
 # ── hoofdprogramma ──────────────────────────────────────────────────────────
@@ -971,6 +989,7 @@ def main() -> int:
     (out / "index.html").write_text(site.home(), "utf-8")
     if films_data is not None:
         (out / "films.html").write_text(site.filmpagina(films_data, config.get("films", {})), "utf-8")
+    (out / "over.html").write_text(site.over(), "utf-8")
     top = site.top10(clusters)
     (out / "nieuws.html").write_text(site.nieuws(top, rub_van), "utf-8")
     for c in top:
