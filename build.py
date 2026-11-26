@@ -48,6 +48,7 @@ class Item:
     link: str
     tijd: datetime
     samenvatting: str = ""
+    categorieen: tuple[str, ...] = ()
 
     @property
     def tokens(self) -> set[str]:
@@ -166,7 +167,8 @@ def parse_feed(data: bytes, bron: str) -> list[Item]:
         samenvatting = schoon(kind_tekst(el, "description", "summary"), 320)
         if samenvatting.lower().startswith(titel.lower()[:40]):
             samenvatting = ""
-        items.append(Item(bron, titel, link, tijd, samenvatting))
+        cats = tuple(schoon(c.text or "") for c in el if lokaal(c.tag) == "category" and (c.text or "").strip())
+        items.append(Item(bron, titel, link, tijd, samenvatting, cats))
     return items
 
 
@@ -262,19 +264,19 @@ a:focus-visible,summary:focus-visible,button:focus-visible{outline:1px solid var
 .bar nav{display:flex;flex-wrap:wrap;gap:4px}
 .bar nav a{padding:3px 10px}.bar nav a.on{background:var(--sel);color:var(--br)}
 .bar .info{display:flex;gap:16px;align-items:center}.bar .info b{color:var(--fg);font-weight:400}
-.wrap{max-width:1200px;margin:0 auto;padding:48px 24px 64px}
-header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:16px;padding-bottom:24px;border-bottom:1px solid var(--ln)}
-.logo{font-size:28px;font-weight:700;letter-spacing:-.5px;color:var(--br)}.logo span{color:var(--ac)}
+.wrap{max-width:1200px;margin:0 auto;padding:28px 24px 64px}
+header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:4px 16px;padding-bottom:16px;border-bottom:1px solid var(--ln)}
+.logo{font-size:22px;font-weight:700;letter-spacing:-.5px;color:var(--br)}.logo span{color:var(--ac)}
 .sub{color:var(--dim)}
 .label{font-size:12px;color:var(--ac2);margin-bottom:12px}
-.boven{display:flex;flex-wrap:wrap;gap:48px;padding:40px 0;border-bottom:1px solid var(--ln)}
-.uitgelicht{flex:999 1 560px;min-width:0}
-.uitgelicht h1{margin:0 0 16px;font-size:24px;line-height:1.35;color:var(--br)}
-.uitgelicht p{margin:0 0 20px;max-width:68ch}
-.laatste{flex:1 1 300px;min-width:0}
-.laatste ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px}
-.laatste li{display:flex;gap:14px}.laatste .t{color:var(--dim);flex:none}
-.laatste a{color:var(--br)}
+.nu{padding:32px 0 40px;border-bottom:1px solid var(--ln)}
+.nu ol{list-style:none;margin:0;padding:0}
+.nu ol.groot{display:flex;flex-direction:column;gap:14px;max-width:960px}
+.nu ol.rest{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px 48px;margin-top:18px}
+.nu li{display:flex;gap:16px}.nu .t{color:var(--dim);flex:none;width:44px}
+.nu .kop{color:var(--br);font-weight:500}.nu li.top .kop{font-size:17px;font-weight:700}
+.nu li.top{padding-bottom:14px;border-bottom:1px solid var(--ln)}
+.nu .sam{margin:4px 0}
 .rubrieken{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:40px 48px;padding-top:40px}
 h2{margin:0 0 14px;font-size:14px;font-weight:500;color:var(--ac)}h2 span{color:var(--dim);font-weight:400}
 .lijst{display:flex;flex-direction:column;gap:16px}
@@ -304,7 +306,7 @@ footer .rij{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
 footer .stuk{color:#f7768e}
 .thema button{font:inherit;background:none;border:0;color:var(--dim);cursor:pointer;padding:2px 6px}
 .thema button[aria-pressed=true]{color:var(--br);background:var(--sel)}
-@media (max-width:640px){.wrap{padding:32px 16px 48px}.bar{padding:6px 16px}.boven{gap:32px}.dekking .src{width:80px}}
+@media (max-width:640px){.wrap{padding:32px 16px 48px}.bar{padding:6px 16px}.nu .t{width:40px}.dekking .src{width:80px}}
 """
 
 JS = """
@@ -343,8 +345,8 @@ def pagina(titel: str, actief: str, rubrieken: list[dict], inhoud: str, stats: d
 </div>
 <div class="wrap">
 <header>
-<div><div class="logo"><span>~/</span>nieuws</div>
-<div class="sub">alle bronnen, één rustig overzicht · bijgewerkt {klok(NOW)}</div></div>
+<div class="logo"><span>~/</span>nieuws</div>
+<div class="sub">alle bronnen, één rustig overzicht · bijgewerkt {klok(NOW)}</div>
 </header>
 {inhoud}
 <footer>
@@ -360,44 +362,34 @@ def pagina(titel: str, actief: str, rubrieken: list[dict], inhoud: str, stats: d
 
 def voorpagina(rubrieken: list[dict], per: dict[str, list[Cluster]], stats: dict) -> str:
     alle = [(r, c) for r in rubrieken for c in per[r["id"]]]
-    recent = [x for x in alle if NOW - x[1].tijd < timedelta(hours=12)] or alle
     if not alle:
         return pagina("~/nieuws", "voorpagina", rubrieken, '<p class="sub" style="padding:40px 0">Nog geen berichten opgehaald.</p>', stats)
-    r_top, top = max(recent, key=lambda x: (len(x[1].bronnen), x[1].tijd))
 
-    dekking = "".join(
-        f'<li><span class="src">{e(it.bron)}</span><a href="{e(it.link)}">{e(it.titel)}</a><span class="t">{klok(it.tijd)}</span></li>'
-        for it in top.items[1:8]
-    )
-    sam = f"<p>{e(top.hoofd.samenvatting)}</p>" if top.hoofd.samenvatting else ""
-    n = len(top.bronnen)
-    uitgelicht = f"""<article class="uitgelicht">
-<div class="label">▍ uitgelicht · {e(r_top["titel"])}</div>
-<h1><a href="{top.pagina}">{e(top.hoofd.titel)}</a></h1>
-{sam}
-<div class="meta" style="margin-bottom:8px">{e(top.hoofd.bron)} · {klok(top.hoofd.tijd)}{f" — {n} bronnen berichten hierover" if n > 1 else ""}</div>
-{f'<ul class="dekking">{dekking}</ul>' if dekking else ""}
-</article>"""
-
-    laatste_lijst = sorted((x for x in alle if x[1] is not top), key=lambda x: x[1].tijd, reverse=True)[:9]
-    laatste = "".join(
-        f'<li><span class="t">{klok(c.tijd)}</span><div><a href="{c.pagina}">{e(c.hoofd.titel)}</a>'
-        f'<div class="meta">{e(r["titel"])} · {meta(c)}</div></div></li>'
-        for r, c in laatste_lijst
-    )
+    # Laatste nieuws bovenaan, nieuwste eerst; de eerste paar met samenvatting.
+    laatste_lijst = sorted(alle, key=lambda x: x[1].tijd, reverse=True)[:14]
+    rijen = []
+    for i, (r, c) in enumerate(laatste_lijst):
+        sam = f'<p class="sam">{e(c.hoofd.samenvatting)}</p>' if i < 4 and c.hoofd.samenvatting else ""
+        rijen.append(
+            f'<li class="{"top" if i < 4 else ""}"><span class="t">{klok(c.tijd)}</span><div>'
+            f'<a class="kop" href="{c.pagina}">{e(c.hoofd.titel)}</a>{sam}'
+            f'<div class="meta">{e(r["titel"])} · {meta(c)}</div></div></li>'
+        )
+    getoond = {id(c) for _, c in laatste_lijst}
 
     blokken = []
     for r in rubrieken:
-        cl = [c for c in per[r["id"]] if c is not top]
+        cl = [c for c in per[r["id"]] if id(c) not in getoond]
         cl.sort(key=lambda c: (len(c.bronnen) >= 2, c.tijd), reverse=True)
-        items = "".join(cluster_html(c) for c in cl[:7])
+        if not cl:
+            continue
+        items = "".join(cluster_html(c) for c in cl[:6])
         blokken.append(
             f'<section id="{r["id"]}"><h2>## {e(r["titel"])} <span>· {len(per[r["id"]])}</span></h2>'
             f'<div class="lijst">{items}</div><a class="meer" href="{r["id"]}.html">alles in {e(r["titel"])} →</a></section>'
         )
 
-    inhoud = f"""<div class="boven">{uitgelicht}
-<aside class="laatste"><div class="label">▍ laatste</div><ol>{laatste}</ol></aside></div>
+    inhoud = f"""<section class="nu"><div class="label">▍ laatste nieuws</div><ol class="groot">{"".join(rijen[:4])}</ol><ol class="rest">{"".join(rijen[4:])}</ol></section>
 <div class="rubrieken">{"".join(blokken)}</div>"""
     return pagina("~/nieuws", "voorpagina", rubrieken, inhoud, stats)
 
@@ -451,8 +443,11 @@ def main() -> int:
     ap.add_argument("--offline", help="map met <rubriek>__<bron>.xml testbestanden")
     args = ap.parse_args()
 
-    rubrieken = tomllib.loads(Path(args.config).read_text("utf-8"))["rubriek"]
+    config = tomllib.loads(Path(args.config).read_text("utf-8"))
+    rubrieken = config["rubriek"]
     taken = [(r["id"], b["naam"], b["url"]) for r in rubrieken for b in r["bronnen"]]
+    # per bron (rubriek, naam): optionele lijst met toegestane categorieën
+    alleen = {(r["id"], b["naam"]): {c.lower() for c in b.get("alleen_categorie", [])} for r in rubrieken for b in r["bronnen"]}
 
     def laad(taak):
         rid, naam, url = taak
@@ -470,6 +465,22 @@ def main() -> int:
         resultaten = list(pool.map(laad, taken))
 
     per_rubriek: dict[str, list[Item]] = {r["id"]: [] for r in rubrieken}
+    flt = config.get("filter", {})
+    url_weg = [u.lower() for u in flt.get("negeer_url", [])]
+    titel_weg = [re.compile(t, re.I) for t in flt.get("negeer_titel", [])]
+
+    cat_weg = {c.lower() for c in flt.get("negeer_categorie", [])}
+
+    def is_nieuws(it: Item, toegestaan: set[str]) -> bool:
+        link = it.link.lower()
+        cats = {c.lower() for c in it.categorieen}
+        if toegestaan and not (cats & toegestaan):
+            return False
+        if cats & cat_weg:
+            return False
+        return not any(u in link for u in url_weg) and not any(t.search(it.titel) for t in titel_weg)
+
+    weggefilterd = 0
     stuk, werkend = [], []
     for (rid, naam, url), items, fout in resultaten:
         if fout is not None or not items:
@@ -477,7 +488,9 @@ def main() -> int:
             stuk.append(naam)
             continue
         werkend.append(naam)
-        per_rubriek[rid].extend(it for it in items if NOW - it.tijd <= MAX_AGE)
+        goed = [it for it in items if is_nieuws(it, alleen[(rid, naam)])]
+        weggefilterd += len(items) - len(goed)
+        per_rubriek[rid].extend(it for it in goed if NOW - it.tijd <= MAX_AGE)
 
     clusters: dict[str, list[Cluster]] = {}
     totaal = 0
@@ -502,7 +515,7 @@ def main() -> int:
         for c in clusters[r["id"]]:
             (out / c.pagina).write_text(artikelpagina(c, r, rubrieken, stats), "utf-8")
     (out / ".nojekyll").write_text("")
-    print(f"✓ {totaal} artikelen uit {len(namen)} bronnen → {out}/")
+    print(f"✓ {totaal} artikelen uit {len(namen)} bronnen → {out}/ ({weggefilterd} niet-nieuws weggefilterd)")
     return 0
 
 

@@ -4,6 +4,25 @@
 # Voeg een bron toe door een regel { naam = "...", url = "..." } toe te voegen.
 # Werkt een feed niet (meer)? Dan wordt hij overgeslagen; de rest gaat gewoon door.
 
+# Filter voor dingen die geen nieuws zijn (puzzels, recepten, horoscopen…).
+# negeer_url:   berichten waarvan de link dit stukje bevat, worden overgeslagen.
+# negeer_titel: berichten waarvan de kop hierop past (hoofdletters maken niet uit).
+# negeer_categorie: berichten met deze rubriek in de feed (bijv. NRC's columns).
+#               ^ = begin van de kop, $ = einde, | = of.
+[filter]
+negeer_url = [
+  "/puzzels/", "/puzzel/", "/spellen/", "/games/", "/horoscoop", "/recept",
+  "/podcast", "/advertorial", "/partnercontent", "/partner-content", "/cartoon",
+]
+negeer_categorie = [
+  "De puzzels van vandaag", "Ondertussen", "Opinie & columns", "Leven",
+  "Carrière", "In Beeld", "Media", "Cultuur uitgelicht",
+]
+negeer_titel = [
+  "^(sudoku|woordzoeker|kruiswoord|cryptogram)\\b",
+  "^(column|recept|horoscoop|podcast)\\b",
+]
+
 [[rubriek]]
 id = "binnenland"
 titel = "binnenland"
@@ -14,7 +33,8 @@ bronnen = [
   { naam = "Volkskrant", url = "https://www.volkskrant.nl/nieuws-achtergrond/rss.xml" },
   { naam = "Trouw",      url = "https://www.trouw.nl/nieuws/rss.xml" },
   { naam = "AD",         url = "https://www.ad.nl/home/rss.xml" },
-  { naam = "NRC",        url = "https://www.nrc.nl/rss/" },
+  # NRC heeft één feed voor alles; alleen_categorie houdt alleen deze rubrieken over.
+  { naam = "NRC",        url = "https://www.nrc.nl/rss/", alleen_categorie = ["Binnenland", "Politiek Den Haag", "Vandaag", "Economie"] },
 ]
 
 [[rubriek]]
@@ -22,6 +42,7 @@ id = "buitenland"
 titel = "buitenland"
 bronnen = [
   { naam = "NOS",         url = "https://feeds.nos.nl/nosnieuwsbuitenland" },
+  { naam = "NRC",         url = "https://www.nrc.nl/rss/", alleen_categorie = ["Buitenland"] },
   { naam = "BBC",         url = "https://feeds.bbci.co.uk/news/world/rss.xml" },
   { naam = "The Guardian",url = "https://www.theguardian.com/world/rss" },
   { naam = "Al Jazeera",  url = "https://www.aljazeera.com/xml/rss/all.xml" },
