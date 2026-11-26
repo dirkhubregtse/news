@@ -442,10 +442,11 @@ def pixel_logo(raster: list[str], rij_klasse: bool = False, label: str = "") -> 
             f'shape-rendering="crispEdges" {toegankelijk}>{"".join(rects)}</svg>')
 
 
-THEMAS = ["tokyo-night", "catppuccin", "gruvbox", "rose-pine", "latte"]
+THEMAS = ["tokyo-night", "omarchy", "catppuccin", "gruvbox", "rose-pine", "latte"]
 
 CSS = """
-:root{--bg:#1a1b26;--fg:#a9b1d6;--br:#c0caf5;--dim:#787fa6;--ln:#292e42;--ac:#7aa2f7;--ac2:#9ece6a;--sel:#283457;--rood:#f7768e;color-scheme:dark}
+:root{--lt:var(--br);--bg:#1a1b26;--fg:#a9b1d6;--br:#c0caf5;--dim:#787fa6;--ln:#292e42;--ac:#7aa2f7;--ac2:#9ece6a;--sel:#283457;--rood:#f7768e;color-scheme:dark}
+[data-theme=omarchy]{--bg:#2c2c2c;--fg:#d2bc96;--br:#e2cfab;--dim:#a3957d;--ln:#3e3a38;--ac:#7caca1;--ac2:#a2c4bd;--sel:#3e3a38;--rood:#d08770;--lt:#ccdfdb}
 [data-theme=catppuccin]{--bg:#1e1e2e;--fg:#bac2de;--br:#cdd6f4;--dim:#8a8fa8;--ln:#313244;--ac:#89b4fa;--ac2:#a6e3a1;--sel:#313244;--rood:#f38ba8}
 [data-theme=gruvbox]{--bg:#282828;--fg:#d5c4a1;--br:#ebdbb2;--dim:#a19480;--ln:#3c3836;--ac:#83a598;--ac2:#b8bb26;--sel:#3c3836;--rood:#fb4934}
 [data-theme=rose-pine]{--bg:#191724;--fg:#c8c4d9;--br:#e0def4;--dim:#8b87a3;--ln:#26233a;--ac:#9ccfd8;--ac2:#f6c177;--sel:#26233a;--rood:#eb6f92}
@@ -470,8 +471,8 @@ header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:bas
 .credits a,footer a{color:var(--ac)}
 .home{min-height:64vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2.8rem;padding:3rem 0}
 .woordmerk{width:min(90vw,42rem);height:auto}
-.d0,.d1{fill:var(--br)}.d2,.d3{fill:color-mix(in srgb,var(--br) 72%,var(--ac))}.d4{fill:color-mix(in srgb,var(--br) 45%,var(--ac))}
-.d5{fill:color-mix(in srgb,var(--br) 20%,var(--ac))}.d6,.d7{fill:var(--ac)}.d8{fill:color-mix(in srgb,var(--ac) 82%,var(--bg))}
+.d0,.d1{fill:var(--lt)}.d2,.d3{fill:color-mix(in srgb,var(--lt) 72%,var(--ac))}.d4{fill:color-mix(in srgb,var(--lt) 45%,var(--ac))}
+.d5{fill:color-mix(in srgb,var(--lt) 20%,var(--ac))}.d6,.d7{fill:var(--ac)}.d8{fill:color-mix(in srgb,var(--ac) 82%,var(--bg))}
 .d9{fill:color-mix(in srgb,var(--ac) 68%,var(--bg))}.d10,.d11{fill:color-mix(in srgb,var(--ac) 54%,var(--bg))}.d12{fill:color-mix(in srgb,var(--ac) 38%,var(--bg))}
 .home-links{display:flex;flex-wrap:wrap;justify-content:center;gap:1rem 3.4rem;letter-spacing:.35em;text-transform:uppercase}
 .home-links a.kop{color:var(--ac);font-weight:500;padding:.5rem .3rem .5rem .65rem}.home-links a.kop:hover{color:var(--br);text-decoration:none}
