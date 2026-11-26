@@ -9,6 +9,7 @@ Alleen de standaardbibliotheek van Python 3.11+, geen extra pakketten.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import html
 import re
 import sys
@@ -75,6 +76,11 @@ class Cluster:
     @property
     def tijd(self) -> datetime:
         return max(it.tijd for it in self.items)
+
+    @property
+    def pagina(self) -> str:
+        """Bestandsnaam van de eigen artikelpagina, stabiel zolang het hoofdbericht gelijk blijft."""
+        return "a-" + hashlib.sha1(self.hoofd.link.encode()).hexdigest()[:10] + ".html"
 
 
 # ── ophalen & parsen ────────────────────────────────────────────────────────
@@ -155,7 +161,9 @@ def parse_feed(data: bytes, bron: str) -> list[Item]:
         tijd = lees_datum(kind_tekst(el, "pubdate", "published", "updated", "date", "issued")) or NOW
         if tijd > NOW + timedelta(hours=1):
             tijd = NOW
-        samenvatting = schoon(kind_tekst(el, "description", "summary", "content", "encoded"), 240)
+        # Alleen de korte samenvatting uit de feed; sommige feeds zetten er het hele
+        # artikel in, daarom altijd ingekort tot een paar zinnen.
+        samenvatting = schoon(kind_tekst(el, "description", "summary"), 320)
         if samenvatting.lower().startswith(titel.lower()[:40]):
             samenvatting = ""
         items.append(Item(bron, titel, link, tijd, samenvatting))
@@ -227,7 +235,7 @@ def meta(c: Cluster) -> str:
 def cluster_html(c: Cluster, uitgebreid: bool = False) -> str:
     h = c.hoofd
     uit = []
-    uit.append(f'<a class="kop" href="{e(h.link)}">{e(h.titel)}</a>')
+    uit.append(f'<a class="kop" href="{c.pagina}">{e(h.titel)}</a>')
     if uitgebreid and h.samenvatting:
         uit.append(f'<p class="sam">{e(h.samenvatting)}</p>')
     uit.append(f'<div class="meta">{meta(c)}</div>')
@@ -282,6 +290,15 @@ summary::before{content:"+ "}details[open] summary::before{content:"− "}
 .dekking .src{width:96px;flex:none;color:var(--ac)}.dekking a{flex:1;min-width:0}.dekking .t{color:var(--dim)}
 .dag{margin:40px 0 14px;font-size:12px;color:var(--ac2)}.dag:first-child{margin-top:0}
 .rubriek-pagina .lijst{max-width:820px}
+.artikel{max-width:72ch;padding-top:40px}
+.terug{display:inline-block;font-size:12px;color:var(--dim);margin-bottom:24px}.terug:hover{color:var(--ac)}
+.artikel h1{margin:0 0 20px;font-size:26px;line-height:1.35;color:var(--br)}
+.intro{margin:0 0 24px;font-size:15px;line-height:1.75}
+.lees{font-size:12px;color:var(--ac)}.lees.groot{display:inline-block;font-size:14px;border:1px solid var(--ln);padding:8px 14px}
+.lees.groot:hover{background:var(--sel);text-decoration:none}
+.anderen{display:flex;flex-direction:column;border-top:1px solid var(--ln)}
+.ander{padding:16px 0;border-bottom:1px solid var(--ln)}.ander .src{color:var(--ac)}
+.ander .kop{color:var(--br);font-weight:500;margin:2px 0}.ander p{margin:4px 0 6px}
 footer{margin-top:56px;padding-top:20px;border-top:1px solid var(--ln);font-size:12px;color:var(--dim);display:flex;flex-direction:column;gap:12px}
 footer .rij{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}
 footer .stuk{color:#f7768e}
@@ -356,7 +373,7 @@ def voorpagina(rubrieken: list[dict], per: dict[str, list[Cluster]], stats: dict
     n = len(top.bronnen)
     uitgelicht = f"""<article class="uitgelicht">
 <div class="label">▍ uitgelicht · {e(r_top["titel"])}</div>
-<h1><a href="{e(top.hoofd.link)}">{e(top.hoofd.titel)}</a></h1>
+<h1><a href="{top.pagina}">{e(top.hoofd.titel)}</a></h1>
 {sam}
 <div class="meta" style="margin-bottom:8px">{e(top.hoofd.bron)} · {klok(top.hoofd.tijd)}{f" — {n} bronnen berichten hierover" if n > 1 else ""}</div>
 {f'<ul class="dekking">{dekking}</ul>' if dekking else ""}
@@ -364,7 +381,7 @@ def voorpagina(rubrieken: list[dict], per: dict[str, list[Cluster]], stats: dict
 
     laatste_lijst = sorted((x for x in alle if x[1] is not top), key=lambda x: x[1].tijd, reverse=True)[:9]
     laatste = "".join(
-        f'<li><span class="t">{klok(c.tijd)}</span><div><a href="{e(c.hoofd.link)}">{e(c.hoofd.titel)}</a>'
+        f'<li><span class="t">{klok(c.tijd)}</span><div><a href="{c.pagina}">{e(c.hoofd.titel)}</a>'
         f'<div class="meta">{e(r["titel"])} · {meta(c)}</div></div></li>'
         for r, c in laatste_lijst
     )
@@ -399,6 +416,30 @@ def rubriekpagina(r: dict, rubrieken: list[dict], clusters: list[Cluster], stats
         delen.append("</div>")
     inhoud = f'<div class="rubriek-pagina" style="padding-top:40px"><h2>## {e(r["titel"])} <span>· {len(clusters)} onderwerpen</span></h2>{"".join(delen)}</div>'
     return pagina(f'{r["titel"]} — ~/nieuws', r["titel"], rubrieken, inhoud, stats)
+
+
+def artikelpagina(c: Cluster, r: dict, rubrieken: list[dict], stats: dict) -> str:
+    h = c.hoofd
+    sam = h.samenvatting or "Deze bron geeft geen samenvatting mee in de feed."
+    anderen = ""
+    if len(c.items) > 1:
+        blokken = "".join(
+            f'<div class="ander"><div class="meta"><span class="src">{e(it.bron)}</span> · {klok(it.tijd)}</div>'
+            f'<div class="kop">{e(it.titel)}</div>'
+            + (f'<p>{e(it.samenvatting)}</p>' if it.samenvatting else "")
+            + f'<a class="lees" href="{e(it.link)}" rel="noopener">hele artikel lezen bij {e(it.bron)} →</a></div>'
+            for it in c.items[1:]
+        )
+        anderen = f'<div class="label" style="margin-top:48px">▍ zo brengen de anderen het · {len(c.items) - 1}</div><div class="anderen">{blokken}</div>'
+    inhoud = f"""<article class="artikel">
+<a class="terug" href="{r["id"]}.html">← {e(r["titel"])}</a>
+<div class="label">▍ {e(r["titel"])} · {e(h.bron)} · {datum_lang(h.tijd)}</div>
+<h1>{e(h.titel)}</h1>
+<p class="intro">{e(sam)}</p>
+<a class="lees groot" href="{e(h.link)}" rel="noopener">hele artikel lezen bij {e(h.bron)} →</a>
+{anderen}
+</article>"""
+    return pagina(f"{h.titel} — ~/nieuws", r["titel"], rubrieken, inhoud, stats)
 
 
 # ── hoofdprogramma ──────────────────────────────────────────────────────────
@@ -458,6 +499,8 @@ def main() -> int:
     (out / "index.html").write_text(voorpagina(rubrieken, clusters, stats), "utf-8")
     for r in rubrieken:
         (out / f'{r["id"]}.html').write_text(rubriekpagina(r, rubrieken, clusters[r["id"]], stats), "utf-8")
+        for c in clusters[r["id"]]:
+            (out / c.pagina).write_text(artikelpagina(c, r, rubrieken, stats), "utf-8")
     (out / ".nojekyll").write_text("")
     print(f"✓ {totaal} artikelen uit {len(namen)} bronnen → {out}/")
     return 0
