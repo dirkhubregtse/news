@@ -49,6 +49,9 @@ class Item:
     tijd: datetime
     samenvatting: str = ""
     categorieen: tuple[str, ...] = ()
+    tekst: tuple[str, ...] = ()      # volledige tekst in alinea's (alleen bij open licentie)
+    auteur: str = ""
+    licentie: str = ""
 
     @property
     def tokens(self) -> set[str]:
@@ -139,6 +142,7 @@ def lees_datum(s: str) -> datetime | None:
 def schoon(s: str, maxlen: int = 0) -> str:
     s = html.unescape(re.sub(r"<[^>]+>", " ", html.unescape(s)))
     s = re.sub(r"\s+", " ", s).strip()
+    s = re.sub(r" ([.,;:!?)])", r"\1", s)
     if maxlen and len(s) > maxlen:
         s = s[: maxlen].rsplit(" ", 1)[0].rstrip(",.;:") + "…"
     return s
@@ -149,7 +153,16 @@ def veilige_link(url: str) -> str:
     return url if url.startswith(("https://", "http://")) else ""
 
 
-def parse_feed(data: bytes, bron: str) -> list[Item]:
+def alineas(raw: str) -> tuple[str, ...]:
+    if "&lt;" in raw:
+        raw = html.unescape(raw)
+    delen = re.split(r"(?i)</p>|<br\s*/?>|</h[1-6]>|</li>|\n\s*\n", raw)
+    return tuple(a for a in (schoon(d) for d in delen) if len(a) > 1)
+
+
+def parse_feed(data: bytes, bron: str, niveau: str = "kop", licentie: str = "") -> list[Item]:
+    """niveau: 'kop' (alleen kop), 'samenvatting' (kop + korte samenvatting)
+    of 'volledig' (hele tekst; alleen voor bronnen met een open licentie)."""
     root = ET.fromstring(data)
     items: list[Item] = []
     for el in root.iter():
@@ -168,7 +181,17 @@ def parse_feed(data: bytes, bron: str) -> list[Item]:
         if samenvatting.lower().startswith(titel.lower()[:40]):
             samenvatting = ""
         cats = tuple(schoon(c.text or "") for c in el if lokaal(c.tag) == "category" and (c.text or "").strip())
-        items.append(Item(bron, titel, link, tijd, samenvatting, cats))
+        tekst: tuple[str, ...] = ()
+        if niveau == "kop":
+            samenvatting = ""
+        elif niveau == "volledig":
+            for kind in el:
+                if lokaal(kind.tag) in ("encoded", "content", "description", "summary") and "".join(kind.itertext()).strip():
+                    kandidaat = alineas("".join(kind.itertext()))
+                    if sum(map(len, kandidaat)) > sum(map(len, tekst)):
+                        tekst = kandidaat
+        auteur = schoon(kind_tekst(el, "creator", "author"))
+        items.append(Item(bron, titel, link, tijd, samenvatting, cats, tekst, auteur, licentie))
     return items
 
 
@@ -296,6 +319,8 @@ summary::before{content:"+ "}details[open] summary::before{content:"− "}
 .terug{display:inline-block;font-size:12px;color:var(--dim);margin-bottom:24px}.terug:hover{color:var(--ac)}
 .artikel h1{margin:0 0 20px;font-size:26px;line-height:1.35;color:var(--br)}
 .intro{margin:0 0 24px;font-size:15px;line-height:1.75}
+.tekst p{margin:0 0 16px;font-size:15px;line-height:1.75}.tekst{margin-bottom:24px}
+.tekst .bronregel{font-size:12px;color:var(--dim);border-left:2px solid var(--ln);padding-left:12px}
 .lees{font-size:12px;color:var(--ac)}.lees.groot{display:inline-block;font-size:14px;border:1px solid var(--ln);padding:8px 14px}
 .lees.groot:hover{background:var(--sel);text-decoration:none}
 .anderen{display:flex;flex-direction:column;border-top:1px solid var(--ln)}
@@ -412,7 +437,19 @@ def rubriekpagina(r: dict, rubrieken: list[dict], clusters: list[Cluster], stats
 
 def artikelpagina(c: Cluster, r: dict, rubrieken: list[dict], stats: dict) -> str:
     h = c.hoofd
-    sam = h.samenvatting or "Deze bron geeft geen samenvatting mee in de feed."
+    if h.tekst:
+        door = f" door {e(h.auteur)}" if h.auteur else ""
+        lic = f" · licentie {e(h.licentie)}" if h.licentie else ""
+        intro = (f'<p class="bronregel">Dit artikel{door} verscheen oorspronkelijk bij '
+                 f'<a href="{e(h.link)}" rel="noopener">{e(h.bron)}</a> op {datum_lang(h.tijd)}{lic}.</p>'
+                 + "".join(f"<p>{e(a)}</p>" for a in h.tekst))
+        knop = f"origineel bekijken bij {e(h.bron)} →"
+    elif h.samenvatting:
+        intro = f'<p class="intro">{e(h.samenvatting)}</p>'
+        knop = f"hele artikel lezen bij {e(h.bron)} →"
+    else:
+        intro = ""
+        knop = f"artikel lezen bij {e(h.bron)} →"
     anderen = ""
     if len(c.items) > 1:
         blokken = "".join(
@@ -427,8 +464,8 @@ def artikelpagina(c: Cluster, r: dict, rubrieken: list[dict], stats: dict) -> st
 <a class="terug" href="{r["id"]}.html">← {e(r["titel"])}</a>
 <div class="label">▍ {e(r["titel"])} · {e(h.bron)} · {datum_lang(h.tijd)}</div>
 <h1>{e(h.titel)}</h1>
-<p class="intro">{e(sam)}</p>
-<a class="lees groot" href="{e(h.link)}" rel="noopener">hele artikel lezen bij {e(h.bron)} →</a>
+<div class="tekst">{intro}</div>
+<a class="lees groot" href="{e(h.link)}" rel="noopener">{knop}</a>
 {anderen}
 </article>"""
     return pagina(f"{h.titel} — ~/nieuws", r["titel"], rubrieken, inhoud, stats)
@@ -448,6 +485,7 @@ def main() -> int:
     taken = [(r["id"], b["naam"], b["url"]) for r in rubrieken for b in r["bronnen"]]
     # per bron (rubriek, naam): optionele lijst met toegestane categorieën
     alleen = {(r["id"], b["naam"]): {c.lower() for c in b.get("alleen_categorie", [])} for r in rubrieken for b in r["bronnen"]}
+    niveaus = {(r["id"], b["naam"]): (b.get("tekst", "kop"), b.get("licentie", "")) for r in rubrieken for b in r["bronnen"]}
 
     def laad(taak):
         rid, naam, url = taak
@@ -457,7 +495,8 @@ def main() -> int:
                 data = pad.read_bytes()
             else:
                 data = ophalen(url)
-            return taak, parse_feed(data, naam), None
+            niveau, licentie = niveaus[(rid, naam)]
+            return taak, parse_feed(data, naam, niveau, licentie), None
         except Exception as fout:  # één kapotte feed mag de rest niet tegenhouden
             return taak, [], fout
 

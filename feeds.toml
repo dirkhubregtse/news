@@ -3,6 +3,12 @@
 # Elke [[rubriek]] wordt een kop op de site.
 # Voeg een bron toe door een regel { naam = "...", url = "..." } toe te voegen.
 # Werkt een feed niet (meer)? Dan wordt hij overgeslagen; de rest gaat gewoon door.
+#
+# Hoeveel tekst je van een bron toont, bepaal je met tekst = "...":
+#   "kop"          alleen de kop + link naar de bron (standaard; veilig voor elke bron)
+#   "samenvatting" kop + korte samenvatting uit de feed (alleen als de bron dat toestaat)
+#   "volledig"     de hele tekst op je eigen pagina (alleen bij een open licentie,
+#                  zet dan ook licentie = "..." erbij voor de bronvermelding)
 
 # Filter voor dingen die geen nieuws zijn (puzzels, recepten, horoscopen…).
 # negeer_url:   berichten waarvan de link dit stukje bevat, worden overgeslagen.
@@ -27,6 +33,9 @@ negeer_titel = [
 id = "binnenland"
 titel = "binnenland"
 bronnen = [
+  # Open licentie (CC0): volledige tekst mag op je eigen site.
+  { naam = "Rijksoverheid", url = "https://feeds.rijksoverheid.nl/nieuws.rss", tekst = "volledig", licentie = "CC0" },
+  # NOS staat koppen met bronvermelding toe; de rest alleen kop uit voorzorg.
   { naam = "NOS",        url = "https://feeds.nos.nl/nosnieuwsbinnenland" },
   { naam = "NU.nl",      url = "https://www.nu.nl/rss/Algemeen" },
   { naam = "RTL Nieuws", url = "https://www.rtlnieuws.nl/rss.xml" },
@@ -43,6 +52,8 @@ titel = "buitenland"
 bronnen = [
   { naam = "NOS",         url = "https://feeds.nos.nl/nosnieuwsbuitenland" },
   { naam = "NRC",         url = "https://www.nrc.nl/rss/", alleen_categorie = ["Buitenland"] },
+  # Open licentie (CC BY): volledige tekst mag, met naam van auteur en link.
+  { naam = "Global Voices", url = "https://globalvoices.org/feed/", tekst = "volledig", licentie = "CC BY 3.0" },
   { naam = "BBC",         url = "https://feeds.bbci.co.uk/news/world/rss.xml" },
   { naam = "The Guardian",url = "https://www.theguardian.com/world/rss" },
   { naam = "Al Jazeera",  url = "https://www.aljazeera.com/xml/rss/all.xml" },
