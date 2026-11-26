@@ -4,6 +4,20 @@
 # Voeg een bron toe door een regel { naam = "...", url = "..." } toe te voegen.
 # Werkt een feed niet (meer)? Dan wordt hij overgeslagen; de rest gaat gewoon door.
 
+# Filter voor dingen die geen nieuws zijn (puzzels, recepten, horoscopen…).
+# negeer_url:   berichten waarvan de link dit stukje bevat, worden overgeslagen.
+# negeer_titel: berichten waarvan de kop hierop past (hoofdletters maken niet uit).
+#               ^ = begin van de kop, $ = einde, | = of.
+[filter]
+negeer_url = [
+  "/puzzels/", "/puzzel/", "/spellen/", "/games/", "/horoscoop", "/recept",
+  "/podcast", "/advertorial", "/partnercontent", "/partner-content", "/cartoon",
+]
+negeer_titel = [
+  "^(sudoku|woordzoeker|kruiswoord|cryptogram)\\b",
+  "^(column|recept|horoscoop|podcast)\\b",
+]
+
 [[rubriek]]
 id = "binnenland"
 titel = "binnenland"
