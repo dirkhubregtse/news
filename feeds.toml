@@ -1,0 +1,44 @@
+# Bronnenlijst voor ~/nieuws
+#
+# Elke [[rubriek]] wordt een kop op de site.
+# Voeg een bron toe door een regel { naam = "...", url = "..." } toe te voegen.
+# Werkt een feed niet (meer)? Dan wordt hij overgeslagen; de rest gaat gewoon door.
+
+[[rubriek]]
+id = "binnenland"
+titel = "binnenland"
+bronnen = [
+  { naam = "NOS",        url = "https://feeds.nos.nl/nosnieuwsbinnenland" },
+  { naam = "NU.nl",      url = "https://www.nu.nl/rss/Algemeen" },
+  { naam = "RTL Nieuws", url = "https://www.rtlnieuws.nl/rss.xml" },
+  { naam = "Volkskrant", url = "https://www.volkskrant.nl/nieuws-achtergrond/rss.xml" },
+  { naam = "Trouw",      url = "https://www.trouw.nl/nieuws/rss.xml" },
+  { naam = "AD",         url = "https://www.ad.nl/home/rss.xml" },
+  { naam = "NRC",        url = "https://www.nrc.nl/rss/" },
+]
+
+[[rubriek]]
+id = "buitenland"
+titel = "buitenland"
+bronnen = [
+  { naam = "NOS",         url = "https://feeds.nos.nl/nosnieuwsbuitenland" },
+  { naam = "BBC",         url = "https://feeds.bbci.co.uk/news/world/rss.xml" },
+  { naam = "The Guardian",url = "https://www.theguardian.com/world/rss" },
+  { naam = "Al Jazeera",  url = "https://www.aljazeera.com/xml/rss/all.xml" },
+  { naam = "DW",          url = "https://rss.dw.com/rdf/rss-en-world" },
+  { naam = "France 24",   url = "https://www.france24.com/en/rss" },
+  { naam = "NPR",         url = "https://feeds.npr.org/1004/rss.xml" },
+]
+
+[[rubriek]]
+id = "tech"
+titel = "tech"
+bronnen = [
+  { naam = "NOS",          url = "https://feeds.nos.nl/nosnieuwstech" },
+  { naam = "Tweakers",     url = "https://tweakers.net/feeds/nieuws.xml" },
+  { naam = "Security.nl",  url = "https://www.security.nl/rss/headlines.xml" },
+  { naam = "Ars Technica", url = "https://feeds.arstechnica.com/arstechnica/index" },
+  { naam = "The Verge",    url = "https://www.theverge.com/rss/index.xml" },
+  { naam = "LWN",          url = "https://lwn.net/headlines/rss" },
+  { naam = "Hacker News",  url = "https://hnrss.org/frontpage" },
+]
