@@ -17,6 +17,21 @@ edities = ["07:00", "12:30", "18:00"]
 archief_dagen = 365   # hoe lang berichten in het archief blijven
 zoek_dagen = 14       # hoeveel dagen terug je kunt zoeken
 
+[films]
+# Filmsuggesties (pagina 'films'). Vereist een gratis TMDB-sleutel als GitHub-secret TMDB_API_KEY.
+# score = "imdb" of "tmdb". Let op: IMDb staat publiceren van zijn scores op een
+# openbare site niet toe; met "tmdb" zit je binnen de voorwaarden.
+score = "imdb"
+land = "NL"                 # voor de streamingdiensten
+jaren_nieuw = 2             # wat telt als 'nieuw'
+min_score_nieuw = 7.0
+min_stemmen_nieuw = 5000
+min_score_alltime = 8.0
+min_stemmen_alltime = 25000
+genres = ["actie", "avontuur", "animatie", "komedie", "misdaad", "documentaire", "drama",
+          "familie", "fantasy", "geschiedenis", "horror", "mysterie", "romantiek",
+          "sciencefiction", "thriller", "oorlog", "western"]
+
 # Filter voor dingen die geen nieuws zijn (puzzels, recepten, horoscopen…).
 # negeer_url:   berichten waarvan de link dit stukje bevat, worden overgeslagen.
 # negeer_titel: berichten waarvan de kop hierop past (hoofdletters maken niet uit).
