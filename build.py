@@ -548,18 +548,20 @@ fetch("zoeken.json").then(function(r){return r.json()}).then(function(j){data=j;
 FILM_JS = """
 (function(){var d=document;
 var LS={get:function(k,v){try{var x=localStorage.getItem(k);return x===null?v:JSON.parse(x)}catch(e){return v}},set:function(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
-var st={soort:LS.get("f-soort",[]),genre:LS.get("f-genre",[]),dienst:LS.get("f-dienst",[])};
+var st={soort:LS.get("f-soort",[]),genre:LS.get("f-genre",[]),dienst:LS.get("f-dienst",[])},geenAnim=LS.get("f-geen-animatie",false);
 var items=[].slice.call(d.querySelectorAll(".film"));
 function heeft(lijst,w){return lijst.indexOf(w)>=0}
 function pas(){
  items.forEach(function(el){var g=el.dataset.genres.split("|"),dn=el.dataset.diensten.split("|");
-  var ok=(!st.soort.length||heeft(st.soort,el.dataset.soort))&&(!st.genre.length||st.genre.some(function(x){return heeft(g,x)}))&&(!st.dienst.length||st.dienst.some(function(x){return heeft(dn,x)}));
+  var ok=!(geenAnim&&(heeft(g,"animatie")||heeft(g,"kinderen")))&&(!st.soort.length||heeft(st.soort,el.dataset.soort))&&(!st.genre.length||st.genre.some(function(x){return heeft(g,x)}))&&(!st.dienst.length||st.dienst.some(function(x){return heeft(dn,x)}));
   el.hidden=!ok});
  ["nieuw","alltime"].forEach(function(id){var box=d.getElementById(id);if(!box)return;var n=box.querySelectorAll(".film:not([hidden])").length;
   var t=d.querySelector('.telling[data-voor="'+id+'"]');if(t)t.textContent=n+" titels";var p=box.nextElementSibling;if(p)p.hidden=n>0||!box.querySelector(".film")});
- d.querySelectorAll(".chip").forEach(function(b){var f=b.dataset.f,w=b.dataset.w;b.setAttribute("aria-pressed",w===""?!st[f].length:heeft(st[f],w))});
+ d.querySelectorAll(".chip[data-f]").forEach(function(b){var f=b.dataset.f,w=b.dataset.w;b.setAttribute("aria-pressed",w===""?!st[f].length:heeft(st[f],w))});
+ var ga=d.getElementById("geen-animatie");if(ga)ga.setAttribute("aria-pressed",geenAnim);LS.set("f-geen-animatie",geenAnim);
  LS.set("f-soort",st.soort);LS.set("f-genre",st.genre);LS.set("f-dienst",st.dienst)}
-d.querySelectorAll(".chip").forEach(function(b){b.onclick=function(){var f=b.dataset.f,w=b.dataset.w;
+var gab=d.getElementById("geen-animatie");if(gab)gab.onclick=function(){geenAnim=!geenAnim;pas()};
+d.querySelectorAll(".chip[data-f]").forEach(function(b){b.onclick=function(){var f=b.dataset.f,w=b.dataset.w;
  if(w==="")st[f]=[];else{var i=st[f].indexOf(w);if(i>=0)st[f].splice(i,1);else st[f].push(w)}pas()}});
 pas();
 })();
@@ -821,6 +823,7 @@ class Site:
 {chips("soort", "soort", ["film", "serie"])}
 {chips("genre", "genre", genres)}
 {chips("kijken via", "dienst", [d for d, _ in diensten.most_common(12)])}
+<div class="filterrij"><span class="naam">verbergen</span><button type="button" class="chip" id="geen-animatie" aria-pressed="false">animatie &amp; tekenfilms</button></div>
 </div>
 <section class="blok" style="padding-top:0"><div class="label">▍ nieuw · laatste {jaren} jaar · <span class="telling" data-voor="nieuw"></span></div>
 <div class="filmlijst" id="nieuw">{"".join(titel_html(t) for t in nieuw) or '<p class="leeg">Nog geen titels.</p>'}</div>
