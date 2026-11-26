@@ -461,6 +461,15 @@ footer .stuk{color:var(--rood)}
 #hulp table{border-collapse:collapse}#hulp td{padding:.15rem .7rem .15rem 0}#hulp td:first-child{color:var(--ac);white-space:nowrap}
 #hulp .label{margin-bottom:.5rem}
 kbd{font:inherit}
+.filters{display:flex;flex-direction:column;gap:.6rem;margin:0 0 2.3rem}
+.filterrij{display:flex;flex-wrap:wrap;align-items:center;gap:.3rem}
+.filterrij .naam{width:6.5rem;color:var(--dim);font-size:.86rem}
+.chip{padding:.15rem .6rem;min-height:1.9rem;font-size:.86rem;color:var(--dim);border:1px solid var(--ln)}
+.chip:hover{color:var(--br)}.chip[aria-pressed=true]{color:var(--br);background:var(--sel);border-color:var(--sel)}
+.film .score{font-size:.86rem;color:var(--dim);margin-top:.15rem}.film .score b{color:var(--ac2);font-weight:700}
+.film .jaar{color:var(--dim);font-weight:400}
+.filmlijst{display:grid;grid-template-columns:repeat(auto-fill,minmax(30rem,1fr));gap:1.7rem 3.4rem}
+.leeg{color:var(--dim)}
 @media (max-width:640px){.wrap{padding:1.7rem 1.15rem 3.4rem}.bar{padding:.4rem 1.15rem}.dekking .src{width:5.7rem}ol.groot .kop{font-size:1.1rem}}
 """
 
@@ -495,9 +504,9 @@ d.querySelectorAll("a.kop[data-id]").forEach(function(a){var rij=a.closest(".rij
  else if(vorig&&+a.getAttribute("data-t")>+vorig)rij.classList.add("nieuw")});
 
 /* toetsenbord */
-var lijst=[].slice.call(d.querySelectorAll("a.kop")),pos=-1;
-function ga(n){if(!lijst.length)return;pos=Math.max(0,Math.min(lijst.length-1,pos+n));
- lijst.forEach(function(a){a.classList.remove("cursor")});var a=lijst[pos];a.classList.add("cursor");
+function ga(n){var lijst=[].filter.call(d.querySelectorAll("a.kop"),function(a){return a.offsetParent!==null});if(!lijst.length)return;
+ var nu=d.querySelector("a.kop.cursor"),pos=lijst.indexOf(nu);pos=pos<0?(n>0?0:lijst.length-1):Math.max(0,Math.min(lijst.length-1,pos+n));
+ if(nu)nu.classList.remove("cursor");var a=lijst[pos];a.classList.add("cursor");
  a.focus({preventScroll:true});a.scrollIntoView({block:"nearest"})}
 d.addEventListener("keydown",function(ev){
  if(ev.ctrlKey||ev.metaKey||ev.altKey)return;
@@ -536,6 +545,26 @@ fetch("zoeken.json").then(function(r){return r.json()}).then(function(j){data=j;
 })();
 """
 
+FILM_JS = """
+(function(){var d=document;
+var LS={get:function(k,v){try{var x=localStorage.getItem(k);return x===null?v:JSON.parse(x)}catch(e){return v}},set:function(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+var st={soort:LS.get("f-soort",[]),genre:LS.get("f-genre",[]),dienst:LS.get("f-dienst",[])};
+var items=[].slice.call(d.querySelectorAll(".film"));
+function heeft(lijst,w){return lijst.indexOf(w)>=0}
+function pas(){
+ items.forEach(function(el){var g=el.dataset.genres.split("|"),dn=el.dataset.diensten.split("|");
+  var ok=(!st.soort.length||heeft(st.soort,el.dataset.soort))&&(!st.genre.length||st.genre.some(function(x){return heeft(g,x)}))&&(!st.dienst.length||st.dienst.some(function(x){return heeft(dn,x)}));
+  el.hidden=!ok});
+ ["nieuw","alltime"].forEach(function(id){var box=d.getElementById(id);if(!box)return;var n=box.querySelectorAll(".film:not([hidden])").length;
+  var t=d.querySelector('.telling[data-voor="'+id+'"]');if(t)t.textContent=n+" titels";var p=box.nextElementSibling;if(p)p.hidden=n>0||!box.querySelector(".film")});
+ d.querySelectorAll(".chip").forEach(function(b){var f=b.dataset.f,w=b.dataset.w;b.setAttribute("aria-pressed",w===""?!st[f].length:heeft(st[f],w))});
+ LS.set("f-soort",st.soort);LS.set("f-genre",st.genre);LS.set("f-dienst",st.dienst)}
+d.querySelectorAll(".chip").forEach(function(b){b.onclick=function(){var f=b.dataset.f,w=b.dataset.w;
+ if(w==="")st[f]=[];else{var i=st[f].indexOf(w);if(i>=0)st[f].splice(i,1);else st[f].push(w)}pas()}});
+pas();
+})();
+"""
+
 HULP = """<div id="hulp" hidden><div class="label">▍ toetsen</div><table>
 <tr><td>j / k</td><td>volgende / vorige kop</td></tr>
 <tr><td>Enter</td><td>open de gekozen kop</td></tr>
@@ -550,12 +579,14 @@ HULP = """<div id="hulp" hidden><div class="label">▍ toetsen</div><table>
 
 
 class Site:
-    def __init__(self, rubrieken: list[dict], stats: dict, editie: tuple[datetime, str, str]):
+    def __init__(self, rubrieken: list[dict], stats: dict, editie: tuple[datetime, str, str], films: bool = False):
+        self.films = films
         self.rubrieken = rubrieken
         self.stats = stats
         self.editie = editie
         self.tabs = ([("voorpagina", "index.html"), ("vandaag", "vandaag.html")]
                      + [(r["titel"], f'{r["id"]}.html') for r in rubrieken]
+                     + ([("films", "films.html")] if self.films else [])
                      + [("archief", "archief.html")])
 
     def pagina(self, titel: str, actief: str, inhoud: str, pagina_id: str = "", extra_js: str = "") -> str:
@@ -726,6 +757,81 @@ class Site:
 </article>"""
         return self.pagina(f"{h.titel} — ~/nieuws", r["titel"], inhoud, pagina_id=c.id)
 
+    def filmpagina(self, data: dict, cfg: dict) -> str:
+        bron = cfg.get("score", "imdb")
+        def score(t):
+            return (t.get("imdb"), t.get("stemmen", 0)) if bron == "imdb" else (t.get("tmdb_score"), t.get("tmdb_stemmen", 0))
+        grens = data.get("grens_nieuw", "")
+        nieuw, alltime = [], []
+        for t in data.get("titels", []):
+            sc, st = score(t)
+            if sc is None:
+                continue
+            if t.get("datum", "") >= grens and sc >= cfg.get("min_score_nieuw", 7.0) and st >= cfg.get("min_stemmen_nieuw", 5000 if bron == "imdb" else 200):
+                nieuw.append(t)
+            elif sc >= cfg.get("min_score_alltime", 8.0) and st >= cfg.get("min_stemmen_alltime", 25000 if bron == "imdb" else 1500):
+                alltime.append(t)
+        nieuw.sort(key=lambda t: -score(t)[0]); alltime.sort(key=lambda t: -score(t)[0])
+        nieuw, alltime = nieuw[:250], alltime[:300]
+
+        def genres_van(t):
+            uit = []
+            for g in t.get("genres", []):
+                uit += [x.strip() for x in g.split("&")] if "&" in g else [g]
+            return list(dict.fromkeys(x for x in uit if x))
+
+        diensten = Counter(dn for t in nieuw + alltime for dn in t.get("diensten", []))
+        def stemmen(n):
+            return f"{n / 1_000_000:.1f}M".replace(".", ",") if n >= 1_000_000 else f"{round(n / 1000)}k" if n >= 1000 else str(n)
+
+        def titel_html(t):
+            sc, st = score(t)
+            g = genres_van(t)
+            imdb_url = f"https://www.imdb.com/title/{t['imdb_id']}/"
+            tmdb_url = f"https://www.themoviedb.org/{'movie' if t['soort'] == 'film' else 'tv'}/{t['tmdb']}"
+            orig = f' <span class="jaar">({e(t["origineel"])})</span>' if t.get("origineel") and t["origineel"] != t["titel"] else ""
+            kijk = ", ".join(e(x) for x in t.get("diensten", [])) or "niet bij een abonnement in Nederland"
+            links = [f'<a href="{e(imdb_url)}" rel="noopener">IMDb</a>', f'<a href="{e(tmdb_url)}" rel="noopener">TMDB</a>']
+            if t.get("kijklink"):
+                links.insert(0, f'<a href="{e(t["kijklink"])}" rel="noopener">waar te zien</a>')
+            return (f'<div class="item rij film" data-soort="{t["soort"]}" data-genres="{e("|".join(g))}" '
+                    f'data-diensten="{e("|".join(x.lower() for x in t.get("diensten", [])))}">'
+                    f'<a class="kop" href="{e(imdb_url)}" rel="noopener" data-id="f-{e(t["imdb_id"])}" data-t="0">{e(t["titel"])}</a>{orig}'
+                    f' <span class="jaar">· {t.get("jaar") or "?"} · {t["soort"]}</span>'
+                    f'<div class="score"><b>★ {sc:.1f}</b> {"IMDb" if bron == "imdb" else "TMDB"} · {stemmen(st)} stemmen · {e(", ".join(g))}</div>'
+                    f'<p class="sam">{e(t.get("intro") or "Geen beschrijving beschikbaar.")}</p>'
+                    f'<div class="meta">kijken: {kijk} · {" · ".join(links)}</div></div>')
+
+        def chips(naam, sleutel, waarden, met_alles=True):
+            knoppen = ([f'<button type="button" class="chip" data-f="{sleutel}" data-w="">alles</button>'] if met_alles else [])
+            knoppen += [f'<button type="button" class="chip" data-f="{sleutel}" data-w="{e(w.lower())}">{e(w)}</button>' for w in waarden]
+            return f'<div class="filterrij"><span class="naam">{naam}</span>{"".join(knoppen)}</div>'
+
+        aanwezig = {g for t in nieuw + alltime for g in genres_van(t)}
+        genres = [g for g in cfg.get("genres", []) if g in aanwezig] or sorted(aanwezig)
+        bijgewerkt = data.get("bijgewerkt", "")
+        try:
+            bijgewerkt = datum_lang(datetime.fromisoformat(bijgewerkt))
+        except ValueError:
+            pass
+        jaren = cfg.get("jaren_nieuw", 2)
+        inhoud = f"""<div style="padding-top:2.8rem"><h2>## films &amp; series <span>· bijgewerkt {e(bijgewerkt)}</span></h2>
+<p class="intro-tekst">Goed beoordeelde films en series, gesorteerd op {"IMDb" if bron == "imdb" else "TMDB"}-score. Kies genres (meerdere mag) en zet eventueel je eigen streamingdiensten aan. Je keuzes worden onthouden.</p>
+<div class="filters">
+{chips("soort", "soort", ["film", "serie"])}
+{chips("genre", "genre", genres)}
+{chips("kijken via", "dienst", [d for d, _ in diensten.most_common(12)])}
+</div>
+<section class="blok" style="padding-top:0"><div class="label">▍ nieuw · laatste {jaren} jaar · <span class="telling" data-voor="nieuw"></span></div>
+<div class="filmlijst" id="nieuw">{"".join(titel_html(t) for t in nieuw) or '<p class="leeg">Nog geen titels.</p>'}</div>
+<p class="leeg" hidden>Niets gevonden met deze filters.</p></section>
+<section class="blok"><div class="label">▍ all-time · <span class="telling" data-voor="alltime"></span></div>
+<div class="filmlijst" id="alltime">{"".join(titel_html(t) for t in alltime) or '<p class="leeg">Nog geen titels.</p>'}</div>
+<p class="leeg" hidden>Niets gevonden met deze filters.</p></section>
+<p class="meta" style="margin-top:2rem">Introteksten, genres en streaminginfo: TMDB, streaminggegevens van JustWatch. Deze site gebruikt de TMDB API maar is niet door TMDB goedgekeurd of gecertificeerd.{" Scores: IMDb (imdb.com)." if bron == "imdb" else ""}</p>
+</div>"""
+        return self.pagina("films & series — ~/nieuws", "films", inhoud, extra_js=FILM_JS)
+
     def zoekpagina(self) -> str:
         inhoud = """<div class="smal"><h2>## zoeken</h2>
 <label for="zoek" class="meta">Zoek in koppen en bronnen</label>
@@ -778,6 +884,7 @@ def main() -> int:
     ap.add_argument("--out", default="site")
     ap.add_argument("--archief", help="map waarin berichten per dag bewaard worden")
     ap.add_argument("--offline", help="map met <rubriek>__<bron>.xml testbestanden")
+    ap.add_argument("--films", help="films.json van films.py (optioneel)")
     args = ap.parse_args()
 
     config = tomllib.loads(Path(args.config).read_text("utf-8"))
@@ -888,7 +995,13 @@ def main() -> int:
 
     namen = list(dict.fromkeys(werkend))
     stats = {"artikelen": len(live), "bronnen": len(namen), "namen": namen, "stuk": sorted(set(stuk) - set(werkend))}
-    site = Site(rubrieken, stats, editie)
+    films_data = None
+    if args.films and Path(args.films).exists():
+        try:
+            films_data = json.loads(Path(args.films).read_text("utf-8"))
+        except json.JSONDecodeError:
+            print("! films.json is onleesbaar; filmpagina overgeslagen", file=sys.stderr)
+    site = Site(rubrieken, stats, editie, films=films_data is not None)
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -897,6 +1010,8 @@ def main() -> int:
     (out / "index.html").write_text(site.voorpagina(clusters, rub_van), "utf-8")
     (out / "vandaag.html").write_text(site.vandaag(clusters, rub_van), "utf-8")
     (out / "zoeken.html").write_text(site.zoekpagina(), "utf-8")
+    if films_data is not None:
+        (out / "films.html").write_text(site.filmpagina(films_data, config.get("films", {})), "utf-8")
     eigen_pagina: dict[str, str] = {}
     for r in rubrieken:
         (out / f'{r["id"]}.html').write_text(site.rubriekpagina(r, clusters[r["id"]]), "utf-8")

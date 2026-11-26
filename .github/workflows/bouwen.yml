@@ -40,8 +40,13 @@ jobs:
             git -C archief-data remote add origin "$url"
           fi
 
+      - name: Filmsuggesties bijwerken (hooguit 1x per dag)
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+        run: python films.py --uit archief-data/films.json || echo "Films bijwerken mislukt; vorige versie blijft staan."
+
       - name: Feeds ophalen en site bouwen
-        run: python build.py --out site --archief archief-data
+        run: python build.py --out site --archief archief-data --films archief-data/films.json
 
       - name: Archief bewaren
         working-directory: archief-data

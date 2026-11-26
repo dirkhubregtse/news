@@ -25,3 +25,16 @@ open site/index.html   # of: xdg-open site/index.html
 ## Een rubriek toevoegen
 
 Kopieer een `[[rubriek]]`-blok in `feeds.toml`, geef het een eigen `id` en `titel` en zet er feeds in. De nieuwe kop verschijnt vanzelf in het menu en op de voorpagina.
+
+## Filmsuggesties (optioneel)
+
+De pagina **films** toont goed beoordeelde films en series per genre, met introtekst,
+score en waar je ze in Nederland kunt kijken. Instellen:
+
+1. Maak een gratis account op themoviedb.org en vraag onder Settings → API een
+   sleutel aan (kies *Developer*, niet-commercieel).
+2. Zet die sleutel in je repo onder **Settings → Secrets and variables → Actions →
+   New repository secret**, naam `TMDB_API_KEY`.
+3. Start de workflow opnieuw. De films worden daarna één keer per dag bijgewerkt.
+
+Instellingen (minimale score, genres, IMDb- of TMDB-score) staan onder `[films]` in `feeds.toml`.
